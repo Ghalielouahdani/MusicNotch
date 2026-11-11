@@ -49,7 +49,7 @@ it, and Reduce Motion is respected.
 ```sh
 git clone https://github.com/Ghalielouahdani/MusicNotch.git
 cd MusicNotch
-scripts/build.sh --install   # builds, copies to /Applications, launches
+scripts/build.sh --install
 ```
 
 `scripts/build.sh --run` builds into `build/` and launches from there instead.
