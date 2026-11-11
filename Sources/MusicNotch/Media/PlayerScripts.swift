@@ -16,7 +16,7 @@ nonisolated enum PlayerScripts {
                     set playerState to player state as string
                     if playerState is "stopped" then return {"stopped"}
                     set theTrack to current track
-                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack}
+                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack, shuffling}
                 end timeout
             end tell
             """
@@ -36,7 +36,8 @@ nonisolated enum PlayerScripts {
                     try
                         set trackDuration to duration of theTrack
                     end try
-                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position}
+                    -- Same layout as Spotify's; Music has no artwork URL, so that slot is empty.
+                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position, "", shuffle enabled}
                 end timeout
             end tell
             """
@@ -69,6 +70,15 @@ nonisolated enum PlayerScripts {
             """
     }
 
+    static func setShuffle(_ isOn: Bool, for source: MusicSource) -> String {
+        let property = source == .spotify ? "shuffling" : "shuffle enabled"
+        return """
+            if application id "\(source.bundleID)" is running then
+                tell application id "\(source.bundleID)" to set \(property) to \(isOn)
+            end if
+            """
+    }
+
     static func seek(to seconds: TimeInterval, for source: MusicSource) -> String {
         let position = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), max(0, seconds))
         return """
@@ -89,14 +99,15 @@ nonisolated enum PlayerScripts {
             album: value[4].string ?? "",
             // Spotify reports milliseconds, Music reports seconds.
             duration: source == .spotify ? rawDuration / 1000 : rawDuration,
-            artworkURL: value[7].string.flatMap { URL(string: $0) },
+            artworkURL: value[7].string.flatMap { $0.isEmpty ? nil : URL(string: $0) },
             source: source
         )
         return PlaybackState(
             track: track,
             isPlaying: state == "playing",
             position: value[6].double ?? 0,
-            sampledAt: date
+            sampledAt: date,
+            isShuffling: value[8].bool
         )
     }
 }

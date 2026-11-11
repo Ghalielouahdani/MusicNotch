@@ -141,17 +141,68 @@ struct NowPlayingSection: View {
 private struct PlaybackControls: View {
     let nowPlaying: NowPlayingController
 
+    static let sideSlotWidth: CGFloat = 26
+
     var body: some View {
         let enabled = nowPlaying.track != nil
-        HStack(spacing: 10) {
-            IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
-            IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
-                       help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
-            IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
+        HStack(spacing: 0) {
+            ShuffleButton(
+                isOn: nowPlaying.playback?.isShuffling == true,
+                accent: nowPlaying.track?.source.accent ?? .white,
+                action: nowPlaying.toggleShuffle
+            )
+            .frame(width: Self.sideSlotWidth)
+            .disabled(nowPlaying.playback?.isShuffling == nil)
+
+            Spacer(minLength: 4)
+            HStack(spacing: 10) {
+                IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
+                IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
+                           help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
+                IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
+            }
+            Spacer(minLength: 4)
+
+            // Mirrors the shuffle slot so the transport stays centered.
+            Color.clear.frame(width: Self.sideSlotWidth, height: 1)
         }
         .foregroundStyle(.white.opacity(enabled ? 0.92 : 0.3))
         .disabled(!enabled)
-        .frame(maxWidth: .infinity)
+    }
+}
+
+/// Shuffle, lit in the player's color when on. A dot underneath says "on"
+/// without relying on color alone.
+private struct ShuffleButton: View {
+    let isOn: Bool
+    let accent: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "shuffle")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isOn ? accent : .white.opacity(isHovering && isEnabled ? 0.85 : 0.5))
+                .frame(width: 26, height: 26)
+                .overlay(alignment: .bottom) {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 3, height: 3)
+                        .scaleEffect(isOn ? 1 : 0.2)
+                        .opacity(isOn ? 1 : 0)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .onHover { isHovering = $0 }
+        .animation(.spring(response: 0.25, dampingFraction: 1), value: isOn)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .help(isOn ? "Turn Shuffle Off" : "Turn Shuffle On")
+        .accessibilityLabel("Shuffle")
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 }
 

@@ -88,6 +88,13 @@ final class NowPlayingController {
         send(PlayerScripts.command(.playPause, for: state.track.source))
     }
 
+    func toggleShuffle() {
+        guard var state = playback, let isShuffling = state.isShuffling else { return }
+        state.isShuffling = !isShuffling
+        playback = state
+        send(PlayerScripts.setShuffle(!isShuffling, for: state.track.source))
+    }
+
     func skip(forward: Bool) {
         guard let source = playback?.track.source else { return }
         send(PlayerScripts.command(forward ? .next : .previous, for: source))
