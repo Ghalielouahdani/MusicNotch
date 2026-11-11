@@ -22,6 +22,10 @@ final class NowPlayingController {
     @ObservationIgnored private var lastActiveSource: MusicSource?
     @ObservationIgnored private var artworkTrackID: String?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private var volumeSender: Task<Void, Never>?
+    @ObservationIgnored private var pendingVolume: (Int, MusicSource)?
+    @ObservationIgnored private var volumeChangedAt: Date?
+    @ObservationIgnored private var volumeBeforeMute: Double?
 
     func start() {
         let distributed = DistributedNotificationCenter.default()
@@ -95,6 +99,37 @@ final class NowPlayingController {
         send(PlayerScripts.setShuffle(!isShuffling, for: state.track.source))
     }
 
+    /// Sets the player's volume (0...1). Safe to call on every drag tick: while one
+    /// Apple Event is in flight, only the latest level is kept and sent next.
+    func setVolume(_ level: Double) {
+        guard var state = playback else { return }
+        let clamped = min(1, max(0, level))
+        state.volume = clamped
+        playback = state
+        volumeChangedAt = Date()
+        pendingVolume = (Int((clamped * 100).rounded()), state.track.source)
+
+        guard volumeSender == nil else { return }
+        volumeSender = Task {
+            while let (level, source) = pendingVolume {
+                pendingVolume = nil
+                _ = try? await AppleScriptRunner.shared.run(PlayerScripts.setVolume(level, for: source))
+            }
+            volumeSender = nil
+        }
+    }
+
+    /// Mutes, or restores the level from before muting.
+    func toggleMute() {
+        guard let volume = playback?.volume else { return }
+        if volume > 0 {
+            volumeBeforeMute = volume
+            setVolume(0)
+        } else {
+            setVolume(volumeBeforeMute ?? 0.5)
+        }
+    }
+
     func skip(forward: Bool) {
         guard let source = playback?.track.source else { return }
         send(PlayerScripts.command(forward ? .next : .previous, for: source))
@@ -166,6 +201,12 @@ final class NowPlayingController {
     }
 
     private func apply(_ state: PlaybackState?) {
+        var state = state
+        // A sample taken mid-drag can trail the level just set; keep ours for a moment.
+        if let changedAt = volumeChangedAt, Date().timeIntervalSince(changedAt) < 1.5,
+           state?.track.source == playback?.track.source {
+            state?.volume = playback?.volume
+        }
         playback = state
         loadArtwork(for: state?.track)
     }

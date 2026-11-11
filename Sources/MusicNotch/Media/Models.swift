@@ -54,6 +54,8 @@ nonisolated struct PlaybackState: Equatable, Sendable {
     var sampledAt: Date
     /// Nil when the player didn't say.
     var isShuffling: Bool? = nil
+    /// The player's own volume, 0...1. Nil when the player didn't say.
+    var volume: Double? = nil
 
     /// Extrapolates the position so the progress bar moves without polling the player.
     func position(at date: Date) -> TimeInterval {

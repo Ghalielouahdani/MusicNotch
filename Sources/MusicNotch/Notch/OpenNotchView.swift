@@ -143,31 +143,143 @@ private struct PlaybackControls: View {
 
     static let sideSlotWidth: CGFloat = 26
 
+    @State private var showsVolume = false
+    @State private var isHoveringSpeaker = false
+    @State private var isHoveringSlider = false
+    @State private var isDraggingVolume = false
+    @State private var collapseTask: Task<Void, Never>?
+
     var body: some View {
         let enabled = nowPlaying.track != nil
+        let volume = nowPlaying.playback?.volume
         HStack(spacing: 0) {
             ShuffleButton(
                 isOn: nowPlaying.playback?.isShuffling == true,
                 accent: nowPlaying.track?.source.accent ?? .white,
-                action: nowPlaying.toggleShuffle
+                action: { nowPlaying.toggleShuffle() }
             )
             .frame(width: Self.sideSlotWidth)
             .disabled(nowPlaying.playback?.isShuffling == nil)
 
-            Spacer(minLength: 4)
-            HStack(spacing: 10) {
-                IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
-                IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
-                           help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
-                IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
-            }
-            Spacer(minLength: 4)
+            ZStack {
+                HStack(spacing: 10) {
+                    IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
+                    IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
+                               help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
+                    IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
+                }
+                .opacity(showsVolume ? 0 : 1)
+                .scaleEffect(showsVolume ? 0.94 : 1)
+                .allowsHitTesting(!showsVolume)
 
-            // Mirrors the shuffle slot so the transport stays centered.
-            Color.clear.frame(width: Self.sideSlotWidth, height: 1)
+                if showsVolume, let volume {
+                    VolumeSlider(volume: volume, isDragging: $isDraggingVolume) { nowPlaying.setVolume($0) }
+                        .padding(.leading, 10)
+                        .padding(.trailing, 4)
+                        .onHover { isHoveringSlider = $0 }
+                        // Grows out of the speaker and folds back into it.
+                        .transition(.scale(scale: 0.2, anchor: .trailing).combined(with: .opacity))
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            VolumeButton(volume: volume) { nowPlaying.toggleMute() }
+                .frame(width: Self.sideSlotWidth)
+                .onHover { isHoveringSpeaker = $0 }
+                .disabled(volume == nil)
         }
         .foregroundStyle(.white.opacity(enabled ? 0.92 : 0.3))
         .disabled(!enabled)
+        .animation(.spring(response: 0.3, dampingFraction: 1), value: showsVolume)
+        .onChange(of: isHoveringSpeaker || isHoveringSlider || isDraggingVolume) { _, engaged in
+            updateVolumeVisibility(engaged: engaged)
+        }
+    }
+
+    /// Opens at once; closes after a short pause so moving from the speaker onto
+    /// the slider (or slipping off it) doesn't snap it shut.
+    private func updateVolumeVisibility(engaged: Bool) {
+        collapseTask?.cancel()
+        if engaged {
+            showsVolume = true
+        } else {
+            collapseTask = Task {
+                try? await Task.sleep(for: .milliseconds(650))
+                guard !Task.isCancelled else { return }
+                showsVolume = false
+            }
+        }
+    }
+}
+
+/// The speaker: its waves fill with the volume. Click to mute or unmute.
+private struct VolumeButton: View {
+    let volume: Double?
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let level = volume ?? 0
+        let muted = level < 0.005
+        Button(action: action) {
+            Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.3.fill", variableValue: level)
+                .font(.system(size: 12, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(.white.opacity(isHovering && isEnabled ? 0.85 : 0.5))
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .help(muted ? "Unmute" : "Mute")
+        .accessibilityLabel(muted ? "Unmute" : "Mute")
+        .accessibilityValue("Volume \(Int((level * 100).rounded())) percent")
+    }
+}
+
+/// Same feel as the progress bar: grab anywhere, it follows the pointer 1:1.
+private struct VolumeSlider: View {
+    let volume: Double
+    @Binding var isDragging: Bool
+    let onChange: (Double) -> Void
+
+    @State private var dragValue: Double?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let value = dragValue ?? volume
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.16))
+                Capsule().fill(.white.opacity(0.92))
+                    .frame(width: proxy.size.width * value)
+            }
+            .frame(height: isDragging ? 6 : 4)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        isDragging = true
+                        let level = min(1, max(0, gesture.location.x / max(proxy.size.width, 1)))
+                        dragValue = level
+                        onChange(level)
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                        dragValue = nil
+                    }
+            )
+        }
+        .frame(height: 26)
+        .animation(.spring(response: 0.25, dampingFraction: 1), value: isDragging)
+        .accessibilityRepresentation {
+            Slider(value: Binding(get: { volume }, set: { onChange($0) }), in: 0...1) {
+                Text("Volume")
+            }
+        }
     }
 }
 

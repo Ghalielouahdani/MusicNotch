@@ -16,7 +16,7 @@ nonisolated enum PlayerScripts {
                     set playerState to player state as string
                     if playerState is "stopped" then return {"stopped"}
                     set theTrack to current track
-                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack, shuffling}
+                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack, shuffling, sound volume}
                 end timeout
             end tell
             """
@@ -37,7 +37,7 @@ nonisolated enum PlayerScripts {
                         set trackDuration to duration of theTrack
                     end try
                     -- Same layout as Spotify's; Music has no artwork URL, so that slot is empty.
-                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position, "", shuffle enabled}
+                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position, "", shuffle enabled, sound volume}
                 end timeout
             end tell
             """
@@ -79,6 +79,15 @@ nonisolated enum PlayerScripts {
             """
     }
 
+    /// - Parameter level: 0...100. Whole numbers keep the compiled-script cache small.
+    static func setVolume(_ level: Int, for source: MusicSource) -> String {
+        """
+        if application id "\(source.bundleID)" is running then
+            tell application id "\(source.bundleID)" to set sound volume to \(min(100, max(0, level)))
+        end if
+        """
+    }
+
     static func seek(to seconds: TimeInterval, for source: MusicSource) -> String {
         let position = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), max(0, seconds))
         return """
@@ -107,7 +116,8 @@ nonisolated enum PlayerScripts {
             isPlaying: state == "playing",
             position: value[6].double ?? 0,
             sampledAt: date,
-            isShuffling: value[8].bool
+            isShuffling: value[8].bool,
+            volume: value[9].double.map { min(1, max(0, $0 / 100)) }
         )
     }
 }

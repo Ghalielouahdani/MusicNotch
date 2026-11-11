@@ -162,6 +162,8 @@ nonisolated enum MusicScripts {
             ("spotify.seek", PlayerScripts.seek(to: 42.5, for: .spotify)),
             ("spotify.shuffle", PlayerScripts.setShuffle(true, for: .spotify)),
             ("music.shuffle", PlayerScripts.setShuffle(false, for: .appleMusic)),
+            ("spotify.volume", PlayerScripts.setVolume(40, for: .spotify)),
+            ("music.volume", PlayerScripts.setVolume(75, for: .appleMusic)),
         ]
     }
 }
