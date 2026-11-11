@@ -357,9 +357,9 @@ private struct PlaybackScrubber: View {
                 .frame(height: 10)
 
                 HStack {
-                    Text(Self.format(fraction * duration))
+                    Text(formatDuration(fraction * duration))
                     Spacer()
-                    Text("-" + Self.format(duration - fraction * duration))
+                    Text("-" + formatDuration(duration - fraction * duration))
                 }
                 .font(.system(size: 10, weight: .medium).monospacedDigit())
                 .foregroundStyle(.white.opacity(0.42))
@@ -367,11 +367,6 @@ private struct PlaybackScrubber: View {
         }
         .onHover { isHovering = $0 }
         .animation(.spring(response: 0.25, dampingFraction: 1), value: active)
-    }
-
-    private static func format(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds.rounded(.down)))
-        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 
@@ -382,6 +377,8 @@ struct PlaylistSection: View {
     let track: Track?
     let isPlaying: Bool
     let actions: NotchActions
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -402,10 +399,32 @@ struct PlaylistSection: View {
                 Placeholder(symbol: "exclamationmark.triangle", text: message,
                             button: "Try Again", action: actions.retryPlaylists)
             case .ready:
-                PlaylistList(playlists: playlists, track: track, isPlaying: isPlaying)
+                // Songs push in from the right and back out the same way, like a
+                // navigation stack, so the way back is where they came from.
+                ZStack(alignment: .top) {
+                    if let open = playlists.openPlaylist {
+                        PlaylistSongsView(
+                            playlists: playlists,
+                            playlist: open,
+                            current: track,
+                            isPlaying: isPlaying,
+                            accent: (track?.source ?? .spotify).accent,
+                            navigate: navigate
+                        )
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+                    } else {
+                        PlaylistList(playlists: playlists, track: track, isPlaying: isPlaying, navigate: navigate)
+                            .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
+                    }
+                }
+                .clipped()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func navigate(_ change: () -> Void) {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.36, dampingFraction: 1), change)
     }
 }
 
@@ -418,35 +437,195 @@ private struct PlaylistList: View {
     let playlists: PlaylistsController
     let track: Track?
     let isPlaying: Bool
+    let navigate: (() -> Void) -> Void
+
+    var body: some View {
+        EdgeFadingScroll {
+            VStack(spacing: 2) {
+                ForEach(playlists.playlists) { playlist in
+                    let source = track?.source ?? .spotify
+                    let isPlayingFrom = playlists.playingPlaylistID == playlist.id
+                    PlaylistRow(
+                        playlist: playlist,
+                        source: source,
+                        isAdded: playlists.containing.contains(playlist.id),
+                        isBusy: playlists.inFlight.contains(playlist.id),
+                        isEnabled: track?.canAddToPlaylists == true,
+                        canPlay: track != nil && playlists.canPlay(playlist, source: source),
+                        isPlayingFrom: isPlayingFrom,
+                        isPlaying: isPlaying,
+                        toggle: { if let track { playlists.toggle(playlist, for: track) } },
+                        play: {
+                            navigate {
+                                // Already playing from it: just show its songs, don't restart.
+                                if isPlayingFrom {
+                                    playlists.showSongs(of: playlist, source: source)
+                                } else {
+                                    playlists.play(playlist, source: source)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/// A playlist's songs, with the one playing highlighted. Click a song to play
+/// it and keep going through the playlist.
+private struct PlaylistSongsView: View {
+    let playlists: PlaylistsController
+    let playlist: Playlist
+    let current: Track?
+    let isPlaying: Bool
+    let accent: Color
+    let navigate: (() -> Void) -> Void
+
+    var body: some View {
+        let songs = playlists.songs
+        let currentPosition = songs.first { $0.matches(current) }?.position
+
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 2) {
+                IconButton(symbol: "chevron.left", size: 10, help: "Back to Playlists") {
+                    navigate { playlists.closeSongs() }
+                }
+                .foregroundStyle(.white.opacity(0.7))
+                Text(playlist.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                if !songs.isEmpty {
+                    Text(songs.count == 1 ? "1 song" : "\(songs.count) songs")
+                        .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.trailing, 6)
+                }
+            }
+            .frame(height: 24)
+            .padding(.leading, -6)
+
+            switch playlists.songsPhase {
+            case .loading:
+                SkeletonRows()
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .clipped()
+            case .failed(let message):
+                Placeholder(symbol: "exclamationmark.triangle", text: message, button: "Try Again") {
+                    playlists.retrySongs()
+                }
+            case .ready where songs.isEmpty:
+                Placeholder(symbol: "music.note.list", text: "This playlist is empty.")
+            case .ready:
+                ScrollViewReader { proxy in
+                    EdgeFadingScroll {
+                        LazyVStack(spacing: 0) {
+                            ForEach(songs) { song in
+                                SongRow(
+                                    song: song,
+                                    isCurrent: song.position == currentPosition,
+                                    isPlaying: isPlaying,
+                                    accent: accent
+                                ) {
+                                    playlists.play(song)
+                                }
+                                .id(song.position)
+                            }
+                        }
+                    }
+                    .onAppear {
+                        if let currentPosition { proxy.scrollTo(currentPosition, anchor: .center) }
+                    }
+                    .onChange(of: currentPosition) { _, position in
+                        guard let position else { return }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 1)) {
+                            proxy.scrollTo(position, anchor: .center)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct SongRow: View {
+    let song: PlaylistTrack
+    let isCurrent: Bool
+    let isPlaying: Bool
+    let accent: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    if isCurrent {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(accent)
+                            .symbolEffect(.variableColor.iterative, isActive: isPlaying && !reduceMotion)
+                    } else if isHovering {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.85))
+                    } else {
+                        Text("\(song.position + 1)")
+                            .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                }
+                .frame(width: 22)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(song.title)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(isCurrent ? accent : .white.opacity(0.92))
+                        .lineLimit(1)
+                    if !song.artist.isEmpty {
+                        Text(song.artist)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.45))
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 4)
+                Text(formatDuration(song.duration))
+                    .font(.system(size: 10, weight: .medium).monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(.horizontal, 6)
+            .frame(height: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowButtonStyle(isHighlighted: isHovering))
+        .onHover { isHovering = $0 }
+        .help("Play \(song.title)")
+        .accessibilityLabel("Play \(song.title)\(song.artist.isEmpty ? "" : " by \(song.artist)")")
+        .accessibilityValue(isCurrent ? "Now playing" : "")
+    }
+}
+
+/// A vertical scroll view that fades only the edge with more content past it,
+/// instead of drawing a hard divider.
+private struct EdgeFadingScroll<Content: View>: View {
+    @ViewBuilder let content: Content
 
     @State private var edges = ScrollEdges()
     @Environment(\.isSnapshot) private var isSnapshot
 
     var body: some View {
-        let rows = VStack(spacing: 2) {
-            ForEach(playlists.playlists) { playlist in
-                let source = track?.source ?? .spotify
-                PlaylistRow(
-                    playlist: playlist,
-                    source: source,
-                    isAdded: playlists.containing.contains(playlist.id),
-                    isBusy: playlists.inFlight.contains(playlist.id),
-                    isEnabled: track?.canAddToPlaylists == true,
-                    canPlay: track != nil && playlists.canPlay(playlist, source: source),
-                    isPlayingFrom: playlists.playingPlaylistID == playlist.id,
-                    isPlaying: isPlaying,
-                    toggle: { if let track { playlists.toggle(playlist, for: track) } },
-                    play: { playlists.play(playlist, source: source) }
-                )
-            }
-        }
-
         if isSnapshot {
-            rows.frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+            content
+                .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .clipped()
-                .mask(fadeMask(ScrollEdges(top: false, bottom: playlists.playlists.count > 3)))
+                .mask(Self.fadeMask(ScrollEdges(top: false, bottom: true)))
         } else {
-            ScrollView(.vertical) { rows }
+            ScrollView(.vertical) { content }
                 .scrollIndicators(.never)
                 .onScrollGeometryChange(for: ScrollEdges.self) { geometry in
                     ScrollEdges(
@@ -456,13 +635,12 @@ private struct PlaylistList: View {
                 } action: { _, new in
                     edges = new
                 }
-                // Fade only the edge that has more content, instead of a hard divider.
-                .mask(fadeMask(edges))
+                .mask(Self.fadeMask(edges))
                 .animation(.easeOut(duration: 0.15), value: edges)
         }
     }
 
-    private func fadeMask(_ edges: ScrollEdges) -> some View {
+    private static func fadeMask(_ edges: ScrollEdges) -> some View {
         LinearGradient(stops: [
             .init(color: edges.top ? .clear : .black, location: 0),
             .init(color: .black, location: 0.16),
@@ -470,6 +648,11 @@ private struct PlaylistList: View {
             .init(color: edges.bottom ? .clear : .black, location: 1),
         ], startPoint: .top, endPoint: .bottom)
     }
+}
+
+private func formatDuration(_ seconds: TimeInterval) -> String {
+    let total = max(0, Int(seconds.rounded(.down)))
+    return String(format: "%d:%02d", total / 60, total % 60)
 }
 
 /// One playlist: click the row to add or remove the song; the play button
@@ -612,8 +795,8 @@ private struct PlayPlaylistButton: View {
         .onHover { isHovering = $0 }
         .animation(.easeOut(duration: 0.12), value: visible)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPlayingFrom)
-        .help("Play \(name)")
-        .accessibilityLabel("Play \(name)")
+        .help(isPlayingFrom ? "Show Songs in \(name)" : "Play \(name)")
+        .accessibilityLabel(isPlayingFrom ? "Show songs in \(name)" : "Play \(name)")
     }
 }
 

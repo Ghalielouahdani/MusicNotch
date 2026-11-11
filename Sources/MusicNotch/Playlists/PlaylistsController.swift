@@ -13,6 +13,12 @@ final class PlaylistsController {
         case failed(String)
     }
 
+    enum SongsPhase: Equatable {
+        case loading
+        case ready
+        case failed(String)
+    }
+
     struct Notice: Equatable {
         enum Kind { case added, removed, playing, error }
         var kind: Kind
@@ -27,6 +33,10 @@ final class PlaylistsController {
     private(set) var notice: Notice?
     /// The playlist the user started from the notch, while the song still belongs to it.
     private(set) var playingPlaylistID: Playlist.ID?
+    /// The playlist whose songs are on screen instead of the playlist list.
+    private(set) var openPlaylist: Playlist?
+    private(set) var songs: [PlaylistTrack] = []
+    private(set) var songsPhase: SongsPhase = .loading
 
     let spotifyAuth: SpotifyAuth
     private let spotify: SpotifyLibrary
@@ -37,6 +47,8 @@ final class PlaylistsController {
     @ObservationIgnored private var checkedTrackID: String?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    @ObservationIgnored private var openSource: MusicSource?
+    @ObservationIgnored private var songsTask: Task<Void, Never>?
 
     init(spotifyAuth: SpotifyAuth) {
         self.spotifyAuth = spotifyAuth
@@ -69,6 +81,7 @@ final class PlaylistsController {
             playlists = []
             containing = []
             playingPlaylistID = nil
+            closeSongs()
         }
         if checkedTrackID != track.id { containing = [] }
 
@@ -118,6 +131,8 @@ final class PlaylistsController {
         let provider = provider(for: source)
         let previous = playingPlaylistID
         playingPlaylistID = playlist.id
+        // Show the songs right away; playback catches up a moment later.
+        showSongs(of: playlist, source: source)
         Task {
             do {
                 try await provider.play(playlist)
@@ -131,11 +146,75 @@ final class PlaylistsController {
         }
     }
 
+    /// Puts a playlist's songs on screen, loading them page by page.
+    func showSongs(of playlist: Playlist, source: MusicSource) {
+        if openPlaylist?.id == playlist.id, openSource == source, songsPhase != .loading, !songs.isEmpty { return }
+        openPlaylist = playlist
+        openSource = source
+        songs = []
+        songsPhase = .loading
+
+        let provider = provider(for: source)
+        songsTask?.cancel()
+        songsTask = Task {
+            do {
+                let all = try await provider.tracks(in: playlist) { partial in
+                    guard !Task.isCancelled, !partial.isEmpty else { return }
+                    songs = partial
+                    songsPhase = .ready
+                }
+                guard !Task.isCancelled else { return }
+                songs = all
+                songsPhase = .ready
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                Log.playlists.error("songs failed: \(String(describing: error), privacy: .public)")
+                handle(error, source: source)
+                songsPhase = .failed(Self.message(for: error))
+            }
+        }
+    }
+
+    func retrySongs() {
+        guard let playlist = openPlaylist, let source = openSource else { return }
+        songs = []
+        songsPhase = .loading
+        openPlaylist = nil
+        showSongs(of: playlist, source: source)
+    }
+
+    func closeSongs() {
+        songsTask?.cancel()
+        openPlaylist = nil
+        openSource = nil
+        songs = []
+    }
+
+    /// Plays one song and keeps going through the open playlist.
+    func play(_ song: PlaylistTrack) {
+        guard let playlist = openPlaylist, let source = openSource else { return }
+        let provider = provider(for: source)
+        playingPlaylistID = playlist.id
+        Task {
+            do {
+                try await provider.play(song, in: playlist)
+            } catch {
+                Log.playlists.error("play song failed: \(String(describing: error), privacy: .public)")
+                handle(error, source: source)
+                show(Notice(kind: .error, text: Self.message(for: error)))
+            }
+        }
+    }
+
     func disconnectSpotify() {
         spotifyAuth.disconnect()
         spotify.forgetAccount()
         if loadedSource == .spotify {
             loadTask?.cancel()
+            closeSongs()
+            playingPlaylistID = nil
             playlists = []
             containing = []
             loadedSource = nil
@@ -222,6 +301,13 @@ final class PlaylistsController {
     }
 
     // MARK: Previews
+
+    func showSongsPreview(of playlist: Playlist, songs: [PlaylistTrack], source: MusicSource) {
+        openPlaylist = playlist
+        openSource = source
+        self.songs = songs
+        songsPhase = .ready
+    }
 
     func showPreview(
         playlists: [Playlist],

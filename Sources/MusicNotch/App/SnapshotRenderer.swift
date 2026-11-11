@@ -70,6 +70,22 @@ enum SnapshotRenderer {
                 playingPlaylistID: "a"
             )
         }),
+        ("open-songs", .open, { controller in
+            controller.showPreview(
+                playlists: controller.playlists,
+                containing: [SpotifyLibrary.likedSongsID, "a"],
+                notice: .init(kind: .playing, text: "Playing Late night drives"),
+                playingPlaylistID: "a"
+            )
+            let songs = [
+                ("Intro", "M83", 332.0), ("Midnight City", "M83", 243.0), ("Nightcall", "Kavinsky", 258.0),
+                ("Wounder", "Burial", 291.0), ("A Real Hero", "College, Electric Youth", 268.0),
+            ].enumerated().map { index, song in
+                PlaylistTrack(position: index, trackID: index == 1 ? "spotify:track:sample" : "spotify:track:\(index)",
+                              title: song.0, artist: song.1, duration: song.2)
+            }
+            controller.showSongsPreview(of: controller.playlists[1], songs: songs, source: .spotify)
+        }),
         ("closed-playing", .closed, { _ in }),
         ("peek", .peek, { _ in }),
     ]
