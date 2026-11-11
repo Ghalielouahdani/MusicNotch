@@ -23,6 +23,9 @@
   small visualizer, tinted with the cover's color, sits to the right.
 - **Opens on hover.** Point at the notch and it swells right away, then opens into a pill
   with the cover, title, a draggable progress bar and playback controls.
+- **Play a playlist.** Hover a playlist and press ▶ next to the (+). Its songs slide in with
+  the one playing highlighted. Click any song to play it and keep going through the playlist,
+  and use the back arrow to return to your playlists.
 - **Shuffle and volume.** Shuffle sits left of the controls and lights up in the player's color
   when on. The speaker on the right fills with the volume level: hover it to slide out a volume
   slider, or click it to mute.
