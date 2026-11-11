@@ -85,6 +85,37 @@ final class SpotifyLibrary: PlaylistProvider {
         return recordChange(in: playlist, response: data) { $0.remove(track.id) }
     }
 
+    func canPlay(_ playlist: Playlist) -> Bool { true }
+
+    func play(_ playlist: Playlist) async throws {
+        let context = try await contextURI(for: playlist)
+        try await AppleScriptRunner.shared.run(try PlayerScripts.spotifyPlay(context), cache: false)
+    }
+
+    func play(_ track: PlaylistTrack, in playlist: Playlist) async throws {
+        let context = try await contextURI(for: playlist)
+        try await AppleScriptRunner.shared.run(try PlayerScripts.spotifyPlay(track.trackID, inContext: context), cache: false)
+    }
+
+    func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack] {
+        var tracks: [PlaylistTrack] = []
+        let limit = URLQueryItem(name: "limit", value: "50")
+        if playlist.kind == .favorites {
+            try await collectTracks(from: api.url("me/tracks", query: [limit]), into: &tracks, progress: progress)
+            return tracks
+        }
+        let fields = "next,items(item(uri,name,duration_ms,artists(name)),track(uri,name,duration_ms,artists(name)))"
+        do {
+            let url = api.url("playlists/\(playlist.id)/items", query: [limit, URLQueryItem(name: "fields", value: fields)])
+            try await collectTracks(from: url, into: &tracks, progress: progress)
+        } catch SpotifyError.http(400, _) {
+            // In case the `fields` filter rejects the new key, fetch whole pages instead.
+            tracks.removeAll()
+            try await collectTracks(from: api.url("playlists/\(playlist.id)/items", query: [limit]), into: &tracks, progress: progress)
+        }
+        return tracks
+    }
+
     func forgetAccount() {
         userID = nil
         index = [:]
@@ -104,6 +135,41 @@ final class SpotifyLibrary: PlaylistProvider {
         let user = try await api.get(api.url("me"), as: SpotifyUser.self)
         userID = user.id
         return user.id
+    }
+
+    /// What Spotify plays through: the playlist, or the user's Liked Songs collection.
+    private func contextURI(for playlist: Playlist) async throws -> String {
+        switch playlist.kind {
+        case .favorites: "spotify:user:\(try await currentUserID()):collection"
+        case .regular: "spotify:playlist:\(playlist.id)"
+        }
+    }
+
+    /// Up to 2,000 songs, 50 per request, reported page by page.
+    private func collectTracks(
+        from url: URL,
+        into tracks: inout [PlaylistTrack],
+        progress: ([PlaylistTrack]) -> Void
+    ) async throws {
+        var next: URL? = url
+        var pages = 0
+        while let current = next, pages < 40 {
+            try Task.checkCancellation()
+            let page = try await api.get(current, as: SpotifyPage<SpotifyPlaylistEntry>.self)
+            for entry in page.items {
+                guard let ref = entry.ref, let uri = ref.uri, let name = ref.name else { continue }
+                tracks.append(PlaylistTrack(
+                    position: tracks.count,
+                    trackID: uri,
+                    title: name,
+                    artist: (ref.artists ?? []).compactMap(\.name).joined(separator: ", "),
+                    duration: TimeInterval(ref.duration_ms ?? 0) / 1000
+                ))
+            }
+            progress(tracks)
+            next = page.next.flatMap(URL.init(string:))
+            pages += 1
+        }
     }
 
     private func isLiked(_ track: Track) async throws -> Bool {

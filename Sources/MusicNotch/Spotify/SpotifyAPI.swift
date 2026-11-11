@@ -86,13 +86,22 @@ nonisolated struct SpotifyPlaylist: Decodable {
     let images: [Image]?
 }
 
-/// One row of `GET /playlists/{id}/items`. The track moved from `track` to `item` in 2026.
+/// One row of `GET /playlists/{id}/items` or `GET /me/tracks`.
+/// Playlists moved the song from `track` to `item` in 2026; saved tracks still use `track`.
 nonisolated struct SpotifyPlaylistEntry: Decodable {
-    struct Ref: Decodable { let uri: String? }
+    struct Ref: Decodable {
+        struct Artist: Decodable { let name: String? }
+        let uri: String?
+        let name: String?
+        let duration_ms: Int?
+        let artists: [Artist]?
+    }
+
     let item: Ref?
     let track: Ref?
 
-    var uri: String? { item?.uri ?? track?.uri }
+    var ref: Ref? { item ?? track }
+    var uri: String? { ref?.uri }
 }
 
 nonisolated struct SpotifySnapshot: Decodable {

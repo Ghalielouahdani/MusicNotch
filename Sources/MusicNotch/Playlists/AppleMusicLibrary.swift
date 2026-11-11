@@ -43,6 +43,34 @@ final class AppleMusicLibrary: PlaylistProvider {
         return playlist
     }
 
+    /// Favorites are a filter on the library, not a playlist Music can start.
+    func canPlay(_ playlist: Playlist) -> Bool { playlist.kind == .regular }
+
+    func play(_ playlist: Playlist) async throws {
+        try await AppleScriptRunner.shared.run(MusicScripts.play(playlistID: try Self.validated(playlist.id)), cache: false)
+    }
+
+    func play(_ track: PlaylistTrack, in playlist: Playlist) async throws {
+        let script = MusicScripts.play(trackID: try Self.validated(track.trackID), playlistID: try Self.validated(playlist.id))
+        try await AppleScriptRunner.shared.run(script, cache: false)
+    }
+
+    func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack] {
+        guard playlist.kind == .regular else { return [] }
+        let value = try await AppleScriptRunner.shared.run(MusicScripts.tracks(playlistID: try Self.validated(playlist.id)), cache: false)
+        let ids = value[0].list, names = value[1].list, artists = value[2].list, durations = value[3].list
+        return ids.indices.compactMap { index in
+            guard let id = ids[index].string, let name = names[safe: index]?.string else { return nil }
+            return PlaylistTrack(
+                position: index,
+                trackID: id,
+                title: name,
+                artist: artists[safe: index]?.string ?? "",
+                duration: durations[safe: index]?.double ?? 0
+            )
+        }
+    }
+
     /// Persistent IDs are hex. Anything else must not reach a script.
     private static func validated(_ id: String) throws -> String {
         guard !id.isEmpty, id.allSatisfy(\.isHexDigit) else {
@@ -138,6 +166,36 @@ nonisolated enum MusicScripts {
         """
     }
 
+    static func play(playlistID: String) -> String {
+        """
+        tell application id "com.apple.Music"
+            play (first user playlist whose persistent ID is "\(playlistID)")
+        end tell
+        """
+    }
+
+    /// Playing the playlist's own entry keeps playback going through that playlist.
+    static func play(trackID: String, playlistID: String) -> String {
+        """
+        tell application id "com.apple.Music"
+            set thePlaylist to (first user playlist whose persistent ID is "\(playlistID)")
+            play (first track of thePlaylist whose persistent ID is "\(trackID)")
+        end tell
+        """
+    }
+
+    /// Four bulk reads instead of one per song, so long playlists stay fast.
+    static func tracks(playlistID: String) -> String {
+        """
+        tell application id "com.apple.Music"
+            with timeout of 20 seconds
+                set thePlaylist to (first user playlist whose persistent ID is "\(playlistID)")
+                return {persistent ID of every track of thePlaylist, name of every track of thePlaylist, artist of every track of thePlaylist, duration of every track of thePlaylist}
+            end timeout
+        end tell
+        """
+    }
+
     /// Binds `theTrack` to the current track, refusing to act if the song changed meanwhile.
     private static func currentTrack(_ trackID: String) -> String {
         """
@@ -163,6 +221,12 @@ nonisolated enum MusicScripts {
             ("spotify.shuffle", PlayerScripts.setShuffle(true, for: .spotify)),
             ("music.shuffle", PlayerScripts.setShuffle(false, for: .appleMusic)),
             ("spotify.volume", PlayerScripts.setVolume(40, for: .spotify)),
+            ("spotify.playPlaylist", (try? PlayerScripts.spotifyPlay("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M")) ?? "FAIL"),
+            ("spotify.playInContext", (try? PlayerScripts.spotifyPlay(
+                "spotify:track:4uLU6hMCjMI75M1A2tKUQC", inContext: "spotify:user:someone_1:collection")) ?? "FAIL"),
+            ("music.playPlaylist", play(playlistID: "0123456789ABCDEF")),
+            ("music.playTrack", play(trackID: "ABCDEF0123456789", playlistID: "0123456789ABCDEF")),
+            ("music.tracks", tracks(playlistID: "0123456789ABCDEF")),
             ("music.volume", PlayerScripts.setVolume(75, for: .appleMusic)),
         ]
     }

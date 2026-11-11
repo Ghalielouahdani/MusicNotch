@@ -65,6 +65,33 @@ nonisolated struct PlaybackState: Equatable, Sendable {
     }
 }
 
+extension Collection {
+    /// The element at `index`, or nil when it's out of bounds.
+    nonisolated subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+/// A song inside a playlist, in playlist order.
+nonisolated struct PlaylistTrack: Identifiable, Equatable, Sendable {
+    /// Position in the playlist. The same song can appear twice, so it can't be the ID.
+    var position: Int
+    /// Spotify URI or Music persistent ID.
+    var trackID: String
+    var title: String
+    var artist: String
+    var duration: TimeInterval
+
+    var id: Int { position }
+
+    func matches(_ track: Track?) -> Bool {
+        guard let track else { return false }
+        if trackID == track.id { return true }
+        // Spotify relinks some songs to a different URI; fall back to title and artist.
+        return title == track.title && artist.hasPrefix(track.artist)
+    }
+}
+
 nonisolated struct Playlist: Identifiable, Equatable, Sendable {
     enum Kind: Sendable { case favorites, regular }
 

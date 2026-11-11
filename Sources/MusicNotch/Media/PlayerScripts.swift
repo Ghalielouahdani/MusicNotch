@@ -79,6 +79,27 @@ nonisolated enum PlayerScripts {
             """
     }
 
+    /// Plays a Spotify URI (a song, playlist or collection), optionally inside a
+    /// context so playback continues through that playlist.
+    static func spotifyPlay(_ uri: String, inContext context: String? = nil) throws -> String {
+        let uri = try validatedSpotifyURI(uri)
+        let contextClause = try context.map { " in context \"\(try validatedSpotifyURI($0))\"" } ?? ""
+        return """
+            tell application id "com.spotify.client"
+                play track "\(uri)"\(contextClause)
+            end tell
+            """
+    }
+
+    /// Spotify URIs are `spotify:` followed by IDs; anything with quotes or spaces must not reach a script.
+    private static func validatedSpotifyURI(_ uri: String) throws -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ":._-%+"))
+        guard uri.hasPrefix("spotify:"), uri.unicodeScalars.allSatisfy(allowed.contains) else {
+            throw ScriptError(number: -1, message: "Spotify can't play this from here.")
+        }
+        return uri
+    }
+
     /// - Parameter level: 0...100. Whole numbers keep the compiled-script cache small.
     static func setVolume(_ level: Int, for source: MusicSource) -> String {
         """

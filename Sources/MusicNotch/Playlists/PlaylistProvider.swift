@@ -1,6 +1,6 @@
 import Foundation
 
-/// A music service whose playlists the current song can be added to.
+/// A music service whose playlists the current song can be added to, and played from.
 protocol PlaylistProvider: AnyObject {
     /// Playlists the user can edit, with the favorites collection first.
     func playlists() async throws -> [Playlist]
@@ -16,4 +16,14 @@ protocol PlaylistProvider: AnyObject {
     /// Returns the playlist with any updated version marker.
     func add(_ track: Track, to playlist: Playlist) async throws -> Playlist
     func remove(_ track: Track, from playlist: Playlist) async throws -> Playlist
+
+    /// Whether the player can start this playlist as a whole.
+    func canPlay(_ playlist: Playlist) -> Bool
+    func play(_ playlist: Playlist) async throws
+    /// Plays one song and keeps going through the rest of the playlist.
+    func play(_ track: PlaylistTrack, in playlist: Playlist) async throws
+
+    /// The playlist's songs in order. Calls `progress` as pages arrive so long
+    /// playlists show their first songs right away.
+    func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack]
 }
