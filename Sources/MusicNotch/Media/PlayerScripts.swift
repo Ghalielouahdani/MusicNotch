@@ -3,7 +3,7 @@ import Foundation
 /// AppleScript sources for reading and controlling the players.
 ///
 /// Every script checks `is running` first: a bare `tell application` would launch the app.
-nonisolated enum PlayerScripts {
+enum PlayerScripts {
     enum Command { case playPause, next, previous }
 
     static func state(for source: MusicSource) -> String {

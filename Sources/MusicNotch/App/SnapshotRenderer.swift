@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Renders the notch with sample data to PNGs: `MusicNotch --snapshot <folder>`.
 /// Used to review the design without touching the real notch.
+@MainActor
 enum SnapshotRenderer {
     static func render(into folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

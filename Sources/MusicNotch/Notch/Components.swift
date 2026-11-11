@@ -220,6 +220,7 @@ private struct EqualizerRepresentable: NSViewRepresentable {
     }
 }
 
+@MainActor
 final class EqualizerLayerView: NSView {
     static let restingLevels: [CGFloat] = [0.45, 0.8, 0.6, 0.35]
     private static let barWidth: CGFloat = 2.5

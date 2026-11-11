@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import SwiftUI
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = AppSettings()
     private let spotifyAuth = SpotifyAuth()

@@ -2,6 +2,7 @@ import Foundation
 import Network
 
 /// A one-shot HTTP listener on 127.0.0.1 that catches Spotify's OAuth redirect.
+@MainActor
 final class LoopbackServer {
     private let port: NWEndpoint.Port
     private let path: String

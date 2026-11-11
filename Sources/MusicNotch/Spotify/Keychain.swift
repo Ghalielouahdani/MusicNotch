@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 /// Stores small Codable values as generic passwords in the login keychain.
-nonisolated enum Keychain {
+enum Keychain {
     private static let service = "com.ghalielouahdani.MusicNotch"
 
     static func save<Value: Encodable>(_ value: Value, account: String) {

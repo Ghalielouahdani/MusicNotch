@@ -9,18 +9,28 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Needs Swift 6.0+ and the macOS 15 SDK or newer: Xcode 16+, or its Command Line Tools.
+SWIFT_VERSION="$(swiftc --version 2>&1 | grep -oE 'Swift version [0-9]+\.[0-9]+' | head -1 | awk '{ print $3 }')"
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || echo 0)"
+if [[ -z "$SWIFT_VERSION" || "${SWIFT_VERSION%%.*}" -lt 6 ]]; then
+  echo "MusicNotch needs Swift 6.0 or newer (found: ${SWIFT_VERSION:-none})." >&2
+  echo "Install Xcode 16 or later, or run: xcode-select --install" >&2
+  exit 1
+fi
+if [[ "${SDK_VERSION%%.*}" -lt 15 ]]; then
+  echo "MusicNotch needs the macOS 15 SDK or newer (found: $SDK_VERSION). Update Xcode or its Command Line Tools." >&2
+  exit 1
+fi
+
 APP="build/MusicNotch.app"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 mkdir -p build
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-echo "Compiling…"
+echo "Compiling with Swift $SWIFT_VERSION, macOS $SDK_VERSION SDK…"
 swiftc -O -wmo -swift-version 6 \
   -target "$(uname -m)-apple-macos15.0" -sdk "$SDK" \
-  -default-isolation MainActor \
-  -enable-upcoming-feature NonisolatedNonsendingByDefault \
-  -enable-upcoming-feature InferIsolatedConformances \
   -module-name MusicNotch \
   $(find Sources/MusicNotch -name '*.swift') \
   -o "$APP/Contents/MacOS/MusicNotch"

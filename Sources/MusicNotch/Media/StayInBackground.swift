@@ -3,6 +3,7 @@ import AppKit
 /// Some players bring themselves to the front when told to play through
 /// AppleScript (Spotify does). This runs such a command and, if the player
 /// wasn't already the frontmost app, hides it again so you stay where you were.
+@MainActor
 enum StayInBackground {
     static func run(bundleID: String, _ command: () async throws -> Void) async throws {
         let player = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first

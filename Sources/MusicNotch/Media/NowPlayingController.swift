@@ -6,6 +6,7 @@ import Observation
 /// Both players post a distributed notification on every change, so the state is
 /// refreshed on demand instead of polled. Between refreshes the position is
 /// extrapolated from the last sample.
+@MainActor
 @Observable
 final class NowPlayingController {
     private(set) var playback: PlaybackState?

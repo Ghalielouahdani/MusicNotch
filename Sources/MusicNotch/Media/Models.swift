@@ -1,7 +1,7 @@
 import Foundation
 
 /// A music app MusicNotch can read from and write playlists to.
-nonisolated enum MusicSource: String, Sendable, CaseIterable {
+enum MusicSource: String, Sendable, CaseIterable {
     case spotify
     case appleMusic
 
@@ -27,7 +27,7 @@ nonisolated enum MusicSource: String, Sendable, CaseIterable {
     }
 }
 
-nonisolated struct Track: Equatable, Sendable {
+struct Track: Equatable, Sendable {
     /// Spotify URI (`spotify:track:…`) or the Music persistent ID.
     var id: String
     var title: String
@@ -46,7 +46,7 @@ nonisolated struct Track: Equatable, Sendable {
     }
 }
 
-nonisolated struct PlaybackState: Equatable, Sendable {
+struct PlaybackState: Equatable, Sendable {
     var track: Track
     var isPlaying: Bool
     /// Position in seconds when the state was sampled.
@@ -67,13 +67,13 @@ nonisolated struct PlaybackState: Equatable, Sendable {
 
 extension Collection {
     /// The element at `index`, or nil when it's out of bounds.
-    nonisolated subscript(safe index: Index) -> Element? {
+    subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
 }
 
 /// A song inside a playlist, in playlist order.
-nonisolated struct PlaylistTrack: Identifiable, Equatable, Sendable {
+struct PlaylistTrack: Identifiable, Equatable, Sendable {
     /// Position in the playlist. The same song can appear twice, so it can't be the ID.
     var position: Int
     /// Spotify URI or Music persistent ID.
@@ -92,7 +92,7 @@ nonisolated struct PlaylistTrack: Identifiable, Equatable, Sendable {
     }
 }
 
-nonisolated struct Playlist: Identifiable, Equatable, Sendable {
+struct Playlist: Identifiable, Equatable, Sendable {
     enum Kind: Sendable { case favorites, regular }
 
     var id: String

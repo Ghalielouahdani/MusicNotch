@@ -1,6 +1,7 @@
 import Foundation
 
 /// A music service whose playlists the current song can be added to, and played from.
+@MainActor
 protocol PlaylistProvider: AnyObject {
     /// Playlists the user can edit, with the favorites collection first.
     func playlists() async throws -> [Playlist]

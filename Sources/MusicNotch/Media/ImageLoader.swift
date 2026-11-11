@@ -2,6 +2,7 @@ import AppKit
 import CoreImage
 
 /// Downloads and caches artwork and playlist covers.
+@MainActor
 final class ImageLoader {
     static let shared = ImageLoader()
 

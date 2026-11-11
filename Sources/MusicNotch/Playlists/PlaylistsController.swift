@@ -2,6 +2,7 @@ import AppKit
 import Observation
 
 /// Playlists for whichever app is playing, and which of them hold the current song.
+@MainActor
 @Observable
 final class PlaylistsController {
     enum Phase: Equatable {

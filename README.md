@@ -42,7 +42,8 @@ it, and Reduce Motion is respected.
 ## Requirements
 
 - macOS 15 or later. It looks best on a MacBook with a notch; on other displays it draws one.
-- Swift 6.2 or later to build: Xcode, or just the Command Line Tools (`xcode-select --install`).
+- Swift 6.0 or later and the macOS 15 SDK to build: Xcode 16 or newer, or just its Command
+  Line Tools (`xcode-select --install`). `scripts/build.sh` checks both and says what's missing.
 
 ## Install
 

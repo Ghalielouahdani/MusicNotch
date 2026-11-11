@@ -1,7 +1,7 @@
 import Foundation
 
 /// A Sendable copy of an Apple Event result, so it can leave the script queue.
-nonisolated enum ScriptValue: Sendable, Equatable {
+enum ScriptValue: Sendable, Equatable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -76,11 +76,11 @@ nonisolated enum ScriptValue: Sendable, Equatable {
     }
 }
 
-nonisolated private func fourCharCode(_ string: String) -> FourCharCode {
+private func fourCharCode(_ string: String) -> FourCharCode {
     string.utf8.reduce(0) { ($0 << 8) | FourCharCode($1) }
 }
 
-nonisolated struct ScriptError: LocalizedError, Sendable {
+struct ScriptError: LocalizedError, Sendable {
     var number: Int
     var message: String
 
@@ -104,7 +104,7 @@ nonisolated struct ScriptError: LocalizedError, Sendable {
 ///
 /// Apple Events block until the target app answers, so they must never run on the
 /// main thread: a slow reply would stall the notch animation.
-nonisolated final class AppleScriptRunner: @unchecked Sendable {
+final class AppleScriptRunner: @unchecked Sendable {
     static let shared = AppleScriptRunner()
 
     private let queue = DispatchQueue(label: "MusicNotch.AppleScript", qos: .userInitiated)

@@ -11,6 +11,7 @@ struct NotchGeometry: Equatable {
         self.notchSize = notchSize
     }
 
+    @MainActor
     init(screen: NSScreen) {
         screenFrame = screen.frame
         if screen.safeAreaInsets.top > 0,
@@ -25,11 +26,13 @@ struct NotchGeometry: Equatable {
     }
 
     /// The built-in display with the notch, else the main display.
+    @MainActor
     static var preferredScreen: NSScreen? {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens.first
     }
 }
 
+@MainActor
 @Observable
 final class NotchViewModel {
     enum State { case closed, peek, open }

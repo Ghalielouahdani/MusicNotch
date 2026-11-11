@@ -1,6 +1,7 @@
 import Foundation
 
 /// Thin client for the Spotify Web API (2026 endpoints: `/playlists/{id}/items`, `/me/library`).
+@MainActor
 final class SpotifyAPI {
     private let auth: SpotifyAuth
     private static let base = URL(string: "https://api.spotify.com/v1/")!
@@ -51,9 +52,9 @@ final class SpotifyAPI {
         }
     }
 
-    nonisolated struct Empty: Encodable {}
+    struct Empty: Encodable {}
 
-    private nonisolated struct ErrorEnvelope: Decodable {
+    private struct ErrorEnvelope: Decodable {
         struct Body: Decodable { let message: String? }
         let error: Body
     }
@@ -61,17 +62,17 @@ final class SpotifyAPI {
 
 // MARK: Response shapes
 
-nonisolated struct SpotifyPage<Item: Decodable>: Decodable {
+struct SpotifyPage<Item: Decodable>: Decodable {
     let items: [Item]
     let next: String?
 }
 
-nonisolated struct SpotifyUser: Decodable {
+struct SpotifyUser: Decodable {
     let id: String
     let display_name: String?
 }
 
-nonisolated struct SpotifyPlaylist: Decodable {
+struct SpotifyPlaylist: Decodable {
     struct Owner: Decodable { let id: String }
     struct Image: Decodable {
         let url: String
@@ -88,7 +89,7 @@ nonisolated struct SpotifyPlaylist: Decodable {
 
 /// One row of `GET /playlists/{id}/items` or `GET /me/tracks`.
 /// Playlists moved the song from `track` to `item` in 2026; saved tracks still use `track`.
-nonisolated struct SpotifyPlaylistEntry: Decodable {
+struct SpotifyPlaylistEntry: Decodable {
     struct Ref: Decodable {
         struct Artist: Decodable { let name: String? }
         let uri: String?
@@ -104,12 +105,12 @@ nonisolated struct SpotifyPlaylistEntry: Decodable {
     var uri: String? { ref?.uri }
 }
 
-nonisolated struct SpotifySnapshot: Decodable {
+struct SpotifySnapshot: Decodable {
     let snapshot_id: String
 }
 
 /// `GET /me/player/devices`.
-nonisolated struct SpotifyDevices: Decodable {
+struct SpotifyDevices: Decodable {
     struct Device: Decodable {
         let id: String?
         let is_active: Bool
@@ -122,7 +123,7 @@ nonisolated struct SpotifyDevices: Decodable {
 }
 
 /// Body of `PUT /me/player/play`. Nil fields are left out.
-nonisolated struct SpotifyPlayRequest: Encodable {
+struct SpotifyPlayRequest: Encodable {
     struct Offset: Encodable {
         var position: Int?
         var uri: String?

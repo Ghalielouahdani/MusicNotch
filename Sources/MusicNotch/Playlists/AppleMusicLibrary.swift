@@ -1,6 +1,7 @@
 import Foundation
 
 /// Music.app playlists through AppleScript. Works with no setup.
+@MainActor
 final class AppleMusicLibrary: PlaylistProvider {
     static let favoritesID = "music:favorites"
 
@@ -81,7 +82,7 @@ final class AppleMusicLibrary: PlaylistProvider {
 }
 
 /// AppleScript sources for Music's library. IDs passed in must already be validated hex.
-nonisolated enum MusicScripts {
+enum MusicScripts {
     private static let editablePlaylists = "every user playlist whose smart is false and special kind is none"
 
     static let playlists = """

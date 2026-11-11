@@ -4,6 +4,7 @@ import Foundation
 ///
 /// Spotify has no "is this song in that playlist" endpoint, so each playlist's
 /// track URIs are cached on disk and only re-fetched when its snapshot ID changes.
+@MainActor
 final class SpotifyLibrary: PlaylistProvider {
     static let likedSongsID = "spotify:liked-songs"
 
@@ -12,7 +13,7 @@ final class SpotifyLibrary: PlaylistProvider {
     private var userID: String?
     private var index: [Playlist.ID: CachedPlaylist]
 
-    private nonisolated struct CachedPlaylist: Codable {
+    private struct CachedPlaylist: Codable {
         var snapshotID: String
         var uris: Set<String>
     }
@@ -132,7 +133,7 @@ final class SpotifyLibrary: PlaylistProvider {
 
     // MARK: Private
 
-    private nonisolated struct RemoveItems: Encodable {
+    private struct RemoveItems: Encodable {
         struct Item: Encodable { let uri: String }
         let items: [Item]
         let snapshot_id: String?

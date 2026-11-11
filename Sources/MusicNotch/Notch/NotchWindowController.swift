@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 /// A borderless panel that floats over the menu bar and never takes focus.
+@MainActor
 final class NotchPanel: NSPanel {
     init() {
         super.init(
@@ -29,12 +30,14 @@ final class NotchPanel: NSPanel {
 
 /// Lets the first click land on a button even though the panel is never key.
 /// (Not generic: a generic NSHostingView subclass crashes the Swift 6.3 optimizer.)
+@MainActor
 final class NotchHostingView: NSHostingView<AnyView> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// Positions the panel over the notch and turns pointer movement into
 /// closed → peek → open → closed.
+@MainActor
 final class NotchWindowController {
     var onOpen: (() -> Void)?
     var onClose: (() -> Void)?

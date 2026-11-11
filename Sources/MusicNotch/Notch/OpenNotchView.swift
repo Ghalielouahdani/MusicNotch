@@ -429,7 +429,7 @@ struct PlaylistSection: View {
     }
 }
 
-private nonisolated struct ScrollEdges: Equatable {
+private struct ScrollEdges: Equatable {
     var top = false
     var bottom = false
 }

@@ -2,7 +2,7 @@ import AppKit
 import CryptoKit
 import Observation
 
-nonisolated struct SpotifyTokens: Codable, Sendable {
+struct SpotifyTokens: Codable, Sendable {
     var accessToken: String
     var refreshToken: String
     var expiresAt: Date
@@ -10,7 +10,7 @@ nonisolated struct SpotifyTokens: Codable, Sendable {
     var scope: String?
 }
 
-nonisolated enum SpotifyError: LocalizedError, Sendable {
+enum SpotifyError: LocalizedError, Sendable {
     case notConnected
     case missingClientID
     case cancelled
@@ -38,6 +38,7 @@ nonisolated enum SpotifyError: LocalizedError, Sendable {
 ///
 /// No client secret is involved, so the Client ID can live in UserDefaults.
 /// Tokens go in the keychain.
+@MainActor
 @Observable
 final class SpotifyAuth {
     enum Status: Equatable { case disconnected, connecting, connected }
@@ -224,14 +225,14 @@ final class SpotifyAuth {
         )
     }
 
-    private nonisolated struct TokenResponse: Decodable {
+    private struct TokenResponse: Decodable {
         let access_token: String
         let refresh_token: String?
         let expires_in: Int
         let scope: String?
     }
 
-    private nonisolated struct TokenError: Decodable {
+    private struct TokenError: Decodable {
         let error: String
         let error_description: String?
     }

@@ -11,7 +11,7 @@ struct NotchActions {
 
 /// The black notch outline: flared top corners that melt into the screen edge,
 /// rounded bottom corners.
-nonisolated struct NotchShape: Shape {
+struct NotchShape: Shape {
     var topRadius: CGFloat
     var bottomRadius: CGFloat
 
@@ -125,6 +125,7 @@ private struct Materialize: ViewModifier {
 }
 
 extension AnyTransition {
+    @MainActor
     static func materialize(reduceMotion: Bool) -> AnyTransition {
         guard !reduceMotion else { return .opacity }
         let base = AnyTransition.modifier(active: Materialize(progress: 0), identity: Materialize(progress: 1))
