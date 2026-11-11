@@ -14,14 +14,6 @@
   <sub><a href="docs/demo.mp4">Watch in full quality</a></sub>
 </p>
 
-<p align="center">
-  <img src="docs/open.png" alt="MusicNotch open under the notch, showing the current song and playlists" width="760">
-</p>
-
-<p align="center">
-  <img src="docs/closed.png" alt="MusicNotch closed, with the album cover and a visualizer beside the notch" width="560">
-</p>
-
 ## What it does
 
 - **Lives in the notch.** While music plays, the cover sits to the left of the notch and a
