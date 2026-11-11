@@ -143,7 +143,7 @@ private struct PlaybackControls: View {
 
     var body: some View {
         let enabled = nowPlaying.track != nil
-        HStack(spacing: 20) {
+        HStack(spacing: 10) {
             IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
             IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
                        help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
