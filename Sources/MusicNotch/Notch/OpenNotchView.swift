@@ -79,6 +79,7 @@ private struct NoticeLabel: View {
         case .added: "checkmark"
         case .removed: "minus"
         case .playing: "play.fill"
+        case .info: "info.circle"
         case .error: "exclamationmark.triangle.fill"
         }
     }

@@ -73,6 +73,10 @@ Spotify's Web API. That needs a personal developer app, which takes about a minu
 3. Open MusicNotch Settings (gear in the notch, or ♪ in the menu bar), paste the app's
    **Client ID**, and click **Connect Spotify**.
 
+Playlists you start from the notch play through Spotify Connect, so the Spotify window
+stays where it is. If you connected Spotify before this was added, click **Reconnect** in
+Settings once to grant the playback permission.
+
 Login uses the Authorization Code flow with PKCE. There is no client secret, the redirect is
 caught by a listener bound to `127.0.0.1` only, and tokens are stored in your Keychain. Spotify
 requires the developer app's owner to have Premium.

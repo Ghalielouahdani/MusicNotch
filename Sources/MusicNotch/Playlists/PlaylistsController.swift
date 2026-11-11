@@ -20,7 +20,7 @@ final class PlaylistsController {
     }
 
     struct Notice: Equatable {
-        enum Kind { case added, removed, playing, error }
+        enum Kind { case added, removed, playing, info, error }
         var kind: Kind
         var text: String
         var id = UUID()
@@ -49,6 +49,7 @@ final class PlaylistsController {
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var openSource: MusicSource?
     @ObservationIgnored private var songsTask: Task<Void, Never>?
+    @ObservationIgnored private var showedReconnectHint = false
 
     init(spotifyAuth: SpotifyAuth) {
         self.spotifyAuth = spotifyAuth
@@ -136,7 +137,9 @@ final class PlaylistsController {
         Task {
             do {
                 try await provider.play(playlist)
-                show(Notice(kind: .playing, text: "Playing \(playlist.name)"))
+                if !showReconnectHintIfNeeded(source: source) {
+                    show(Notice(kind: .playing, text: "Playing \(playlist.name)"))
+                }
             } catch {
                 Log.playlists.error("play failed: \(String(describing: error), privacy: .public)")
                 if playingPlaylistID == playlist.id { playingPlaylistID = previous }
@@ -200,12 +203,22 @@ final class PlaylistsController {
         Task {
             do {
                 try await provider.play(song, in: playlist)
+                showReconnectHintIfNeeded(source: source)
             } catch {
                 Log.playlists.error("play song failed: \(String(describing: error), privacy: .public)")
                 handle(error, source: source)
                 show(Notice(kind: .error, text: Self.message(for: error)))
             }
         }
+    }
+
+    /// Once per launch, points out that an older Spotify login brings Spotify forward on play.
+    @discardableResult
+    private func showReconnectHintIfNeeded(source: MusicSource) -> Bool {
+        guard source == .spotify, !spotifyAuth.canControlPlayback, !showedReconnectHint else { return false }
+        showedReconnectHint = true
+        show(Notice(kind: .info, text: "Reconnect Spotify in Settings"))
+        return true
     }
 
     func disconnectSpotify() {

@@ -55,14 +55,33 @@ private struct SpotifySection: View {
     var body: some View {
         switch auth.status {
         case .connected:
-            HStack {
-                Label {
-                    Text("Connected")
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label {
+                        Text("Connected")
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    }
+                    Spacer()
+                    Button("Disconnect", role: .destructive, action: disconnect)
                 }
-                Spacer()
-                Button("Disconnect", role: .destructive, action: disconnect)
+                if !auth.canControlPlayback {
+                    // Logins from before playlist playback lack the permission to start music.
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: "info.circle.fill").foregroundStyle(.blue)
+                        Text("Reconnect so playlists start without bringing Spotify to the front.")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 8)
+                        Button("Reconnect") { Task { await auth.connect() } }
+                    }
+                    .font(.callout)
+                }
+                if let error = auth.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.callout)
+                }
             }
 
         case .connecting, .disconnected:
