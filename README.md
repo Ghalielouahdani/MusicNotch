@@ -66,25 +66,30 @@ when Music requires that.
 
 ## Spotify
 
-The Spotify app can be scripted for playback but not for playlists, so playlists go through
-Spotify's Web API. That needs a personal developer app, which takes about a minute, once:
+Now playing, playback controls, shuffle and volume work right away. Seeing your playlists and
+adding songs to them takes one extra step, because Spotify only shares playlists with apps
+registered on its developer site. It's free, takes about two minutes, and you only do it once:
 
-1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
-2. Add the Redirect URI `http://127.0.0.1:47823/callback` and tick **Web API**.
-3. Open MusicNotch Settings (gear in the notch, or ♪ in the menu bar), paste the app's
-   **Client ID**, and click **Connect Spotify**.
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), log in, and
+   click **Create app**. Any name and description will do.
+2. Under **Redirect URIs**, paste `http://127.0.0.1:47823/callback`. Tick **Web API**, then save.
+3. Copy the app's **Client ID** into MusicNotch Settings (gear in the notch, or ♪ in the menu
+   bar) and click **Connect Spotify**.
 
-Playlists you start from the notch play through Spotify Connect, so the Spotify window
-stays where it is. If you connected Spotify before this was added, click **Reconnect** in
-Settings once to grant the playback permission.
+Spotify asks for Premium on the account that owns the developer app.
 
-Login uses the Authorization Code flow with PKCE. There is no client secret, the redirect is
-caught by a listener bound to `127.0.0.1` only, and tokens are stored in your Keychain. Spotify
-requires the developer app's owner to have Premium.
+<details>
+<summary>Privacy and details</summary>
 
-Spotify has no "is this song in that playlist" endpoint, so MusicNotch caches each playlist's
-track list in `~/Library/Caches/com.ghalielouahdani.MusicNotch/`. It re-fetches a playlist only
-when its snapshot ID changes.
+- Login uses the Authorization Code flow with PKCE. There's no client secret, the browser
+  redirect is caught by a listener bound to `127.0.0.1` only, and tokens stay in your Keychain.
+- Playlists you start from the notch play through Spotify Connect, so the Spotify window stays
+  where it is. If you connected before this was added, click **Reconnect** in Settings once.
+- Spotify has no "is this song in that playlist" endpoint, so MusicNotch caches each playlist's
+  track list in `~/Library/Caches/com.ghalielouahdani.MusicNotch/` and re-fetches a playlist
+  only when it changes.
+
+</details>
 
 ## How it works
 

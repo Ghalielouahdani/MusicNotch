@@ -14,9 +14,11 @@ struct SettingsView: View {
             } header: {
                 Text("Spotify")
             } footer: {
-                Text("Spotify only lets apps read and edit playlists through its Web API, so MusicNotch uses a private developer app that only you use. Spotify requires Premium for these apps.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                if auth.status != .connected {
+                    Text("Spotify only shares playlists with apps registered on its developer site. It's free and takes about two minutes, once. Spotify asks for Premium on the account that owns the app.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Apple Music") {
@@ -86,10 +88,13 @@ private struct SpotifySection: View {
 
         case .connecting, .disconnected:
             VStack(alignment: .leading, spacing: 14) {
-                Step(number: 1, title: "Create an app in the Spotify Developer Dashboard.") {
-                    Link("Open Dashboard", destination: URL(string: "https://developer.spotify.com/dashboard")!)
+                Text("Optional. Only your playlists need this: now playing, controls, shuffle and volume already work.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Step(number: 1, title: "Create a free app on Spotify’s developer site. Any name works.") {
+                    Link("Open Spotify Dashboard", destination: URL(string: "https://developer.spotify.com/dashboard")!)
                 }
-                Step(number: 2, title: "Add this Redirect URI and tick “Web API”.") {
+                Step(number: 2, title: "Paste this under Redirect URIs, tick “Web API”, and save.") {
                     HStack(spacing: 8) {
                         Text(SpotifyAuth.redirectURI)
                             .font(.system(.callout, design: .monospaced))
@@ -102,7 +107,7 @@ private struct SpotifySection: View {
                         .controlSize(.small)
                     }
                 }
-                Step(number: 3, title: "Paste the app’s Client ID.") {
+                Step(number: 3, title: "Copy the app’s Client ID here.") {
                     TextField("Client ID", text: $auth.clientID, prompt: Text("e.g. 3f9c1a…"))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.callout, design: .monospaced))
