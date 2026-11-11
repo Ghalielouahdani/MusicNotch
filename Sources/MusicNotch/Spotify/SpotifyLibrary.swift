@@ -89,12 +89,20 @@ final class SpotifyLibrary: PlaylistProvider {
 
     func play(_ playlist: Playlist) async throws {
         let context = try await contextURI(for: playlist)
-        try await AppleScriptRunner.shared.run(try PlayerScripts.spotifyPlay(context), cache: false)
+        try await startPlayback(context: context, offset: nil, fallback: try PlayerScripts.spotifyPlay(context))
     }
 
     func play(_ track: PlaylistTrack, in playlist: Playlist) async throws {
         let context = try await contextURI(for: playlist)
-        try await AppleScriptRunner.shared.run(try PlayerScripts.spotifyPlay(track.trackID, inContext: context), cache: false)
+        // Position is exact even when a song appears twice in the playlist.
+        let offset = playlist.kind == .regular
+            ? SpotifyPlayRequest.Offset(position: track.position)
+            : SpotifyPlayRequest.Offset(uri: track.trackID)
+        try await startPlayback(
+            context: context,
+            offset: offset,
+            fallback: try PlayerScripts.spotifyPlay(track.trackID, inContext: context)
+        )
     }
 
     func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack] {
@@ -135,6 +143,41 @@ final class SpotifyLibrary: PlaylistProvider {
         let user = try await api.get(api.url("me"), as: SpotifyUser.self)
         userID = user.id
         return user.id
+    }
+
+    /// Starts playback through Spotify Connect (`PUT /me/player/play`), which plays
+    /// without touching the Spotify window. Falls back to Spotify's own play command,
+    /// which brings Spotify forward, so it's sent back again right after.
+    private func startPlayback(context: String, offset: SpotifyPlayRequest.Offset?, fallback script: String) async throws {
+        if auth.canControlPlayback {
+            do {
+                try await playThroughConnect(SpotifyPlayRequest(context_uri: context, offset: offset))
+                return
+            } catch {
+                // For example Liked Songs, which the API doesn't list as a playable context.
+                Log.spotify.error("Connect playback failed, using Spotify's play command: \(String(describing: error), privacy: .public)")
+            }
+        }
+        try await StayInBackground.run(bundleID: MusicSource.spotify.bundleID) {
+            try await AppleScriptRunner.shared.run(script, cache: false)
+        }
+    }
+
+    private func playThroughConnect(_ request: SpotifyPlayRequest) async throws {
+        do {
+            try await api.send("PUT", api.url("me/player/play"), body: request)
+        } catch SpotifyError.http(404, _) {
+            // No active device: aim at this Mac's Spotify app instead.
+            guard let device = try await localDeviceID() else { throw SpotifyError.http(404, "Spotify isn't open on this Mac.") }
+            try await api.send("PUT", api.url("me/player/play", query: [URLQueryItem(name: "device_id", value: device)]), body: request)
+        }
+    }
+
+    private func localDeviceID() async throws -> String? {
+        let devices = try await api.get(api.url("me/player/devices"), as: SpotifyDevices.self).devices
+            .filter { !$0.is_restricted && $0.id != nil }
+        let device = devices.first { $0.is_active } ?? devices.first { $0.type.lowercased() == "computer" }
+        return device?.id
     }
 
     /// What Spotify plays through: the playlist, or the user's Liked Songs collection.

@@ -107,3 +107,27 @@ nonisolated struct SpotifyPlaylistEntry: Decodable {
 nonisolated struct SpotifySnapshot: Decodable {
     let snapshot_id: String
 }
+
+/// `GET /me/player/devices`.
+nonisolated struct SpotifyDevices: Decodable {
+    struct Device: Decodable {
+        let id: String?
+        let is_active: Bool
+        let is_restricted: Bool
+        let name: String
+        let type: String
+    }
+
+    let devices: [Device]
+}
+
+/// Body of `PUT /me/player/play`. Nil fields are left out.
+nonisolated struct SpotifyPlayRequest: Encodable {
+    struct Offset: Encodable {
+        var position: Int?
+        var uri: String?
+    }
+
+    var context_uri: String
+    var offset: Offset?
+}

@@ -6,6 +6,8 @@ nonisolated struct SpotifyTokens: Codable, Sendable {
     var accessToken: String
     var refreshToken: String
     var expiresAt: Date
+    /// Space-separated scopes Spotify granted. Missing on logins saved before it was recorded.
+    var scope: String?
 }
 
 nonisolated enum SpotifyError: LocalizedError, Sendable {
@@ -49,6 +51,9 @@ final class SpotifyAuth {
         "playlist-modify-public",
         "user-library-read",
         "user-library-modify",
+        // Start playlists through Spotify Connect, which leaves the Spotify window alone.
+        "user-modify-playback-state",
+        "user-read-playback-state",
     ]
 
     var clientID: String {
@@ -56,6 +61,12 @@ final class SpotifyAuth {
     }
     private(set) var status: Status
     private(set) var lastError: String?
+    private(set) var grantedScopes: Set<String> = []
+
+    /// Logins made before playback control was added lack these scopes and need a reconnect.
+    var canControlPlayback: Bool {
+        grantedScopes.contains("user-modify-playback-state") && grantedScopes.contains("user-read-playback-state")
+    }
 
     @ObservationIgnored private var tokens: SpotifyTokens?
     @ObservationIgnored private var refreshTask: Task<SpotifyTokens, Error>?
@@ -66,6 +77,7 @@ final class SpotifyAuth {
         let stored = Keychain.read(SpotifyTokens.self, account: "spotify")
         tokens = stored
         status = stored == nil ? .disconnected : .connected
+        grantedScopes = Self.scopeSet(stored?.scope)
     }
 
     func connect() async {
@@ -141,6 +153,7 @@ final class SpotifyAuth {
 
     func disconnect() {
         tokens = nil
+        grantedScopes = []
         Keychain.delete(account: "spotify")
         status = .disconnected
     }
@@ -182,6 +195,12 @@ final class SpotifyAuth {
     private func store(_ tokens: SpotifyTokens) {
         self.tokens = tokens
         Keychain.save(tokens, account: "spotify")
+        let scopes = Self.scopeSet(tokens.scope)
+        if scopes != grantedScopes { grantedScopes = scopes }
+    }
+
+    private static func scopeSet(_ scope: String?) -> Set<String> {
+        Set((scope ?? "").split(separator: " ").map(String.init))
     }
 
     private func requestTokens(_ form: [String: String], previous: SpotifyTokens?) async throws -> SpotifyTokens {
@@ -200,7 +219,8 @@ final class SpotifyAuth {
         return SpotifyTokens(
             accessToken: payload.access_token,
             refreshToken: payload.refresh_token ?? previous?.refreshToken ?? "",
-            expiresAt: Date().addingTimeInterval(TimeInterval(payload.expires_in))
+            expiresAt: Date().addingTimeInterval(TimeInterval(payload.expires_in)),
+            scope: payload.scope ?? previous?.scope
         )
     }
 
@@ -208,6 +228,7 @@ final class SpotifyAuth {
         let access_token: String
         let refresh_token: String?
         let expires_in: Int
+        let scope: String?
     }
 
     private nonisolated struct TokenError: Decodable {
