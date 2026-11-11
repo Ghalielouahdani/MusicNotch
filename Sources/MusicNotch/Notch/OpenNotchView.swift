@@ -16,7 +16,7 @@ struct OpenNotchView: View {
             HStack(alignment: .top, spacing: 22) {
                 NowPlayingSection(nowPlaying: nowPlaying, openPlayer: actions.openPlayer)
                     .frame(width: 314)
-                PlaylistSection(playlists: playlists, track: nowPlaying.track, actions: actions)
+                PlaylistSection(playlists: playlists, track: nowPlaying.track, isPlaying: nowPlaying.isPlaying, actions: actions)
             }
             .padding(.top, 10)
             .padding(.horizontal, 30)
@@ -78,6 +78,7 @@ private struct NoticeLabel: View {
         switch notice.kind {
         case .added: "checkmark"
         case .removed: "minus"
+        case .playing: "play.fill"
         case .error: "exclamationmark.triangle.fill"
         }
     }
@@ -379,6 +380,7 @@ private struct PlaybackScrubber: View {
 struct PlaylistSection: View {
     let playlists: PlaylistsController
     let track: Track?
+    let isPlaying: Bool
     let actions: NotchActions
 
     var body: some View {
@@ -400,7 +402,7 @@ struct PlaylistSection: View {
                 Placeholder(symbol: "exclamationmark.triangle", text: message,
                             button: "Try Again", action: actions.retryPlaylists)
             case .ready:
-                PlaylistList(playlists: playlists, track: track)
+                PlaylistList(playlists: playlists, track: track, isPlaying: isPlaying)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -415,6 +417,7 @@ private nonisolated struct ScrollEdges: Equatable {
 private struct PlaylistList: View {
     let playlists: PlaylistsController
     let track: Track?
+    let isPlaying: Bool
 
     @State private var edges = ScrollEdges()
     @Environment(\.isSnapshot) private var isSnapshot
@@ -422,15 +425,19 @@ private struct PlaylistList: View {
     var body: some View {
         let rows = VStack(spacing: 2) {
             ForEach(playlists.playlists) { playlist in
+                let source = track?.source ?? .spotify
                 PlaylistRow(
                     playlist: playlist,
-                    source: track?.source ?? .spotify,
+                    source: source,
                     isAdded: playlists.containing.contains(playlist.id),
                     isBusy: playlists.inFlight.contains(playlist.id),
-                    isEnabled: track?.canAddToPlaylists == true
-                ) {
-                    if let track { playlists.toggle(playlist, for: track) }
-                }
+                    isEnabled: track?.canAddToPlaylists == true,
+                    canPlay: track != nil && playlists.canPlay(playlist, source: source),
+                    isPlayingFrom: playlists.playingPlaylistID == playlist.id,
+                    isPlaying: isPlaying,
+                    toggle: { if let track { playlists.toggle(playlist, for: track) } },
+                    play: { playlists.play(playlist, source: source) }
+                )
             }
         }
 
@@ -465,40 +472,63 @@ private struct PlaylistList: View {
     }
 }
 
+/// One playlist: click the row to add or remove the song; the play button
+/// beside the (+) starts the playlist.
 private struct PlaylistRow: View {
     let playlist: Playlist
     let source: MusicSource
     let isAdded: Bool
     let isBusy: Bool
     let isEnabled: Bool
-    let action: () -> Void
+    let canPlay: Bool
+    let isPlayingFrom: Bool
+    let isPlaying: Bool
+    let toggle: () -> Void
+    let play: () -> Void
 
     @State private var isHovering = false
 
+    /// Room kept free in the row for the play button, which sits on top of it.
+    private static let playSlot: CGFloat = 22
+    private static let rowPadding: CGFloat = 7
+    private static let spacing: CGFloat = 9
+    private static let statusWidth: CGFloat = 18
+
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
+        Button(action: toggle) {
+            HStack(spacing: Self.spacing) {
                 PlaylistCover(playlist: playlist, source: source)
                     .frame(width: 24, height: 24)
                 Text(playlist.name)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(isEnabled ? 0.92 : 0.4))
+                    .foregroundStyle(.white.opacity(isEnabled || canPlay ? 0.92 : 0.4))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                status.frame(width: 18, height: 18)
+                if canPlay { Color.clear.frame(width: Self.playSlot, height: 1) }
+                status.frame(width: Self.statusWidth, height: 18)
             }
-            .padding(.horizontal, 7)
+            .padding(.horizontal, Self.rowPadding)
             .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.white.opacity(isHovering && isEnabled ? 0.09 : 0))
-            )
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressableStyle(scale: 0.97))
+        .buttonStyle(RowButtonStyle(isHighlighted: isHovering && (isEnabled || canPlay)))
         .disabled(!isEnabled)
+        // A separate button above the row, so it isn't swallowed by the row's own click.
+        .overlay(alignment: .trailing) {
+            if canPlay {
+                PlayPlaylistButton(
+                    name: playlist.name,
+                    accent: source.accent,
+                    isRevealed: isHovering,
+                    isPlayingFrom: isPlayingFrom,
+                    isPlaying: isPlaying,
+                    action: play
+                )
+                .frame(width: Self.playSlot)
+                .padding(.trailing, Self.rowPadding + Self.statusWidth + Self.spacing)
+            }
+        }
         .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovering)
         .help(isAdded ? "Remove from \(playlist.name)" : "Add to \(playlist.name)")
         .accessibilityLabel(isAdded ? "Remove from \(playlist.name)" : "Add to \(playlist.name)")
         .accessibilityValue(isAdded ? "Added" : "")
@@ -524,6 +554,66 @@ private struct PlaylistRow: View {
         // The checkmark is a completion moment, so it earns a little bounce.
         .animation(.spring(response: 0.32, dampingFraction: 0.6), value: isAdded)
         .animation(.easeOut(duration: 0.12), value: isBusy)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+}
+
+/// The row lights up on hover and brightens the instant it's pressed.
+private struct RowButtonStyle: ButtonStyle {
+    let isHighlighted: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.white.opacity(configuration.isPressed ? 0.15 : (isHighlighted ? 0.09 : 0)))
+            )
+            .animation(.easeOut(duration: 0.12), value: isHighlighted)
+    }
+}
+
+/// Play, shown on hover. On the playlist that's playing it stays visible as a
+/// waveform moving with the music.
+private struct PlayPlaylistButton: View {
+    let name: String
+    let accent: Color
+    let isRevealed: Bool
+    let isPlayingFrom: Bool
+    let isPlaying: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let visible = isRevealed || isPlayingFrom
+        Button(action: action) {
+            ZStack {
+                if isPlayingFrom {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(accent)
+                        .symbolEffect(.variableColor.iterative, isActive: isPlaying && !reduceMotion)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                } else {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white.opacity(isHovering ? 1 : 0.7))
+                        .transition(.opacity)
+                }
+            }
+            .frame(width: 22, height: 22)
+            .background(Circle().fill(.white.opacity(isHovering ? 0.14 : 0)))
+            .contentShape(Circle())
+        }
+        .buttonStyle(PressableStyle(scale: 0.85))
+        .opacity(visible ? 1 : 0)
+        .allowsHitTesting(visible)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: visible)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPlayingFrom)
+        .help("Play \(name)")
+        .accessibilityLabel("Play \(name)")
     }
 }
 

@@ -62,6 +62,14 @@ enum SnapshotRenderer {
                 notice: .init(kind: .added, text: "Added to Late night drives")
             )
         }),
+        ("open-playing-playlist", .open, { controller in
+            controller.showPreview(
+                playlists: controller.playlists,
+                containing: [SpotifyLibrary.likedSongsID, "a"],
+                notice: .init(kind: .playing, text: "Playing Late night drives"),
+                playingPlaylistID: "a"
+            )
+        }),
         ("closed-playing", .closed, { _ in }),
         ("peek", .peek, { _ in }),
     ]

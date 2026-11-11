@@ -14,7 +14,7 @@ final class PlaylistsController {
     }
 
     struct Notice: Equatable {
-        enum Kind { case added, removed, error }
+        enum Kind { case added, removed, playing, error }
         var kind: Kind
         var text: String
         var id = UUID()
@@ -25,6 +25,8 @@ final class PlaylistsController {
     private(set) var containing: Set<Playlist.ID> = []
     private(set) var inFlight: Set<Playlist.ID> = []
     private(set) var notice: Notice?
+    /// The playlist the user started from the notch, while the song still belongs to it.
+    private(set) var playingPlaylistID: Playlist.ID?
 
     let spotifyAuth: SpotifyAuth
     private let spotify: SpotifyLibrary
@@ -66,6 +68,7 @@ final class PlaylistsController {
         if sourceChanged {
             playlists = []
             containing = []
+            playingPlaylistID = nil
         }
         if checkedTrackID != track.id { containing = [] }
 
@@ -102,6 +105,27 @@ final class PlaylistsController {
             } catch {
                 Log.playlists.error("\(removing ? "remove" : "add", privacy: .public) failed: \(String(describing: error), privacy: .public)")
                 handle(error, source: track.source)
+                show(Notice(kind: .error, text: Self.message(for: error)))
+            }
+        }
+    }
+
+    func canPlay(_ playlist: Playlist, source: MusicSource) -> Bool {
+        provider(for: source).canPlay(playlist)
+    }
+
+    func play(_ playlist: Playlist, source: MusicSource) {
+        let provider = provider(for: source)
+        let previous = playingPlaylistID
+        playingPlaylistID = playlist.id
+        Task {
+            do {
+                try await provider.play(playlist)
+                show(Notice(kind: .playing, text: "Playing \(playlist.name)"))
+            } catch {
+                Log.playlists.error("play failed: \(String(describing: error), privacy: .public)")
+                if playingPlaylistID == playlist.id { playingPlaylistID = previous }
+                handle(error, source: source)
                 show(Notice(kind: .error, text: Self.message(for: error)))
             }
         }
@@ -149,6 +173,8 @@ final class PlaylistsController {
             guard !Task.isCancelled else { return }
             containing = found
             checkedTrackID = track.id
+            // Playback moved on to a song outside the playlist we started.
+            if let playing = playingPlaylistID, !found.contains(playing) { playingPlaylistID = nil }
         } catch is CancellationError {
             return
         } catch {
@@ -197,8 +223,15 @@ final class PlaylistsController {
 
     // MARK: Previews
 
-    func showPreview(playlists: [Playlist], containing: Set<Playlist.ID>, inFlight: Set<Playlist.ID> = [], notice: Notice? = nil) {
+    func showPreview(
+        playlists: [Playlist],
+        containing: Set<Playlist.ID>,
+        inFlight: Set<Playlist.ID> = [],
+        notice: Notice? = nil,
+        playingPlaylistID: Playlist.ID? = nil
+    ) {
         phase = .ready
+        self.playingPlaylistID = playingPlaylistID
         self.playlists = playlists
         self.containing = containing
         self.inFlight = inFlight
