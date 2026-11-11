@@ -10,6 +10,11 @@
 </p>
 
 <p align="center">
+  <img src="docs/demo.gif" alt="MusicNotch demo: hover the notch, add the song to a playlist, play a playlist and pick a song" width="760"><br>
+  <sub><a href="docs/demo.mp4">Watch in full quality</a></sub>
+</p>
+
+<p align="center">
   <img src="docs/open.png" alt="MusicNotch open under the notch, showing the current song and playlists" width="760">
 </p>
 
