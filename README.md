@@ -23,6 +23,9 @@
   small visualizer, tinted with the cover's color, sits to the right.
 - **Opens on hover.** Point at the notch and it swells right away, then opens into a pill
   with the cover, title, a draggable progress bar and playback controls.
+- **Shuffle and volume.** Shuffle sits left of the controls and lights up in the player's color
+  when on. The speaker on the right fills with the volume level: hover it to slide out a volume
+  slider, or click it to mute.
 - **One click to a playlist.** Your playlists are listed on the right. Click one to add the
   song; checkmarks show where it already is. Click a checked one to take it back out.
   *Liked Songs* (Spotify) and *Favorite Songs* (Apple Music) are always at the top.
