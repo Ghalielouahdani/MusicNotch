@@ -23,8 +23,8 @@
 - **Play a playlist.** Hover a playlist and press ▶ next to the (+). Its songs slide in with
   the one playing highlighted. Click any song to play it and keep going through the playlist,
   and use the back arrow to return to your playlists.
-- **Shuffle and volume.** Shuffle sits left of the controls and lights up in the player's color
-  when on. The speaker on the right fills with the volume level: hover it to slide out a volume
+- **Shuffle, repeat and volume.** Shuffle and repeat sit on either side of the controls and light
+  up in the player's color when on. In Apple Music, a second click on repeat repeats just the song. The speaker on the right fills with the volume level: hover it to slide out a volume
   slider, or click it to mute.
 - **One click to a playlist.** Your playlists are listed on the right. Click one to add the
   song; checkmarks show where it already is. Click a checked one to take it back out.
@@ -63,7 +63,7 @@ when Music requires that.
 
 ## Spotify
 
-Now playing, playback controls, shuffle and volume work right away. Seeing your playlists and
+Now playing, playback controls, shuffle, repeat and volume work right away. Seeing your playlists and
 adding songs to them takes one extra step, because Spotify only shares playlists with apps
 registered on its developer site. It's free, takes about two minutes, and you only do it once:
 
