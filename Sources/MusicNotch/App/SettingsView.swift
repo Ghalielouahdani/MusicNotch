@@ -88,7 +88,7 @@ private struct SpotifySection: View {
 
         case .connecting, .disconnected:
             VStack(alignment: .leading, spacing: 14) {
-                Text("Optional. Only your playlists need this: now playing, controls, shuffle and volume already work.")
+                Text("Optional. Only your playlists need this: now playing, controls, shuffle, repeat and volume already work.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Step(number: 1, title: "Create a free app on Spotify’s developer site. Any name works.") {

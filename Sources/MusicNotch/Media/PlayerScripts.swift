@@ -16,7 +16,9 @@ enum PlayerScripts {
                     set playerState to player state as string
                     if playerState is "stopped" then return {"stopped"}
                     set theTrack to current track
-                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack, shuffling, sound volume}
+                    set repeatMode to "off"
+                    if repeating then set repeatMode to "all"
+                    return {playerState, id of theTrack, name of theTrack, artist of theTrack, album of theTrack, duration of theTrack, player position, artwork url of theTrack, shuffling, sound volume, repeatMode}
                 end timeout
             end tell
             """
@@ -37,7 +39,7 @@ enum PlayerScripts {
                         set trackDuration to duration of theTrack
                     end try
                     -- Same layout as Spotify's; Music has no artwork URL, so that slot is empty.
-                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position, "", shuffle enabled, sound volume}
+                    return {playerState, trackID, name of theTrack, artist of theTrack, album of theTrack, trackDuration, player position, "", shuffle enabled, sound volume, song repeat as string}
                 end timeout
             end tell
             """
@@ -75,6 +77,17 @@ enum PlayerScripts {
         return """
             if application id "\(source.bundleID)" is running then
                 tell application id "\(source.bundleID)" to set \(property) to \(isOn)
+            end if
+            """
+    }
+
+    static func setRepeat(_ mode: RepeatMode, for source: MusicSource) -> String {
+        let assignment = source == .spotify
+            ? "set repeating to \(mode != .off)"
+            : "set song repeat to \(mode.rawValue)"
+        return """
+            if application id "\(source.bundleID)" is running then
+                tell application id "\(source.bundleID)" to \(assignment)
             end if
             """
     }
@@ -138,7 +151,8 @@ enum PlayerScripts {
             position: value[6].double ?? 0,
             sampledAt: date,
             isShuffling: value[8].bool,
-            volume: value[9].double.map { min(1, max(0, $0 / 100)) }
+            volume: value[9].double.map { min(1, max(0, $0 / 100)) },
+            repeatMode: value[10].string.flatMap(RepeatMode.init(rawValue:))
         )
     }
 }

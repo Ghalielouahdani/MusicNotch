@@ -56,12 +56,27 @@ struct PlaybackState: Equatable, Sendable {
     var isShuffling: Bool? = nil
     /// The player's own volume, 0...1. Nil when the player didn't say.
     var volume: Double? = nil
+    /// Nil when the player didn't say.
+    var repeatMode: RepeatMode? = nil
 
     /// Extrapolates the position so the progress bar moves without polling the player.
     func position(at date: Date) -> TimeInterval {
         guard isPlaying else { return position }
         let elapsed = position + date.timeIntervalSince(sampledAt)
         return track.duration > 0 ? min(elapsed, track.duration) : elapsed
+    }
+}
+
+enum RepeatMode: String, Sendable {
+    case off, all, one
+
+    /// The next mode on press. Spotify's scripting only knows on and off, so it skips `one`.
+    func next(for source: MusicSource) -> RepeatMode {
+        switch self {
+        case .off: .all
+        case .all: source == .appleMusic ? .one : .off
+        case .one: .off
+        }
     }
 }
 

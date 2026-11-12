@@ -221,6 +221,8 @@ enum MusicScripts {
             ("spotify.seek", PlayerScripts.seek(to: 42.5, for: .spotify)),
             ("spotify.shuffle", PlayerScripts.setShuffle(true, for: .spotify)),
             ("music.shuffle", PlayerScripts.setShuffle(false, for: .appleMusic)),
+            ("spotify.repeat", PlayerScripts.setRepeat(.all, for: .spotify)),
+            ("music.repeat", PlayerScripts.setRepeat(.one, for: .appleMusic)),
             ("spotify.volume", PlayerScripts.setVolume(40, for: .spotify)),
             ("spotify.playPlaylist", (try? PlayerScripts.spotifyPlay("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M")) ?? "FAIL"),
             ("spotify.playInContext", (try? PlayerScripts.spotifyPlay(

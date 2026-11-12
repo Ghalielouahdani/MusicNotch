@@ -100,6 +100,14 @@ final class NowPlayingController {
         send(PlayerScripts.setShuffle(!isShuffling, for: state.track.source))
     }
 
+    func cycleRepeat() {
+        guard var state = playback, let mode = state.repeatMode else { return }
+        let next = mode.next(for: state.track.source)
+        state.repeatMode = next
+        playback = state
+        send(PlayerScripts.setRepeat(next, for: state.track.source))
+    }
+
     /// Sets the player's volume (0...1). Safe to call on every drag tick: while one
     /// Apple Event is in flight, only the latest level is kept and sent next.
     func setVolume(_ level: Double) {

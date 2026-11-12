@@ -24,7 +24,7 @@ enum SnapshotRenderer {
             let settings = AppSettings()
             let nowPlaying = NowPlayingController()
             nowPlaying.showPreview(
-                PlaybackState(track: track, isPlaying: true, position: 81, sampledAt: .now, isShuffling: true, volume: 0.6),
+                PlaybackState(track: track, isPlaying: true, position: 81, sampledAt: .now, isShuffling: true, volume: 0.6, repeatMode: .all),
                 artwork: sampleArtwork()
             )
             let playlists = PlaylistsController(spotifyAuth: SpotifyAuth())

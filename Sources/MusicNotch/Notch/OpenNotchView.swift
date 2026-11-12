@@ -154,21 +154,44 @@ private struct PlaybackControls: View {
     var body: some View {
         let enabled = nowPlaying.track != nil
         let volume = nowPlaying.playback?.volume
+        let accent = nowPlaying.track?.source.accent ?? .white
+        let repeatMode = nowPlaying.playback?.repeatMode
         HStack(spacing: 0) {
-            ShuffleButton(
-                isOn: nowPlaying.playback?.isShuffling == true,
-                accent: nowPlaying.track?.source.accent ?? .white,
-                action: { nowPlaying.toggleShuffle() }
-            )
-            .frame(width: Self.sideSlotWidth)
-            .disabled(nowPlaying.playback?.isShuffling == nil)
-
             ZStack {
-                HStack(spacing: 10) {
-                    IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
-                    IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
-                               help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
-                    IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
+                // Shuffle and repeat flank the transport, like in the players themselves.
+                HStack(spacing: 0) {
+                    ModeButton(
+                        symbol: "shuffle",
+                        isOn: nowPlaying.playback?.isShuffling == true,
+                        accent: accent,
+                        help: nowPlaying.playback?.isShuffling == true ? "Turn Shuffle Off" : "Turn Shuffle On",
+                        label: "Shuffle",
+                        value: nowPlaying.playback?.isShuffling == true ? "On" : "Off",
+                        action: { nowPlaying.toggleShuffle() }
+                    )
+                    .frame(width: Self.sideSlotWidth)
+                    .disabled(nowPlaying.playback?.isShuffling == nil)
+
+                    Spacer(minLength: 2)
+                    HStack(spacing: 10) {
+                        IconButton(symbol: "backward.fill", size: 14, help: "Previous") { nowPlaying.skip(forward: false) }
+                        IconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", size: 20,
+                                   help: nowPlaying.isPlaying ? "Pause" : "Play") { nowPlaying.togglePlayPause() }
+                        IconButton(symbol: "forward.fill", size: 14, help: "Next") { nowPlaying.skip(forward: true) }
+                    }
+                    Spacer(minLength: 2)
+
+                    ModeButton(
+                        symbol: repeatMode == .one ? "repeat.1" : "repeat",
+                        isOn: repeatMode == .all || repeatMode == .one,
+                        accent: accent,
+                        help: repeatHelp(repeatMode),
+                        label: "Repeat",
+                        value: repeatMode == .one ? "One" : repeatMode == .all ? "All" : "Off",
+                        action: { nowPlaying.cycleRepeat() }
+                    )
+                    .frame(width: Self.sideSlotWidth)
+                    .disabled(repeatMode == nil)
                 }
                 .opacity(showsVolume ? 0 : 1)
                 .scaleEffect(showsVolume ? 0.94 : 1)
@@ -195,6 +218,14 @@ private struct PlaybackControls: View {
         .animation(.spring(response: 0.3, dampingFraction: 1), value: showsVolume)
         .onChange(of: isHoveringSpeaker || isHoveringSlider || isDraggingVolume) { _, engaged in
             updateVolumeVisibility(engaged: engaged)
+        }
+    }
+
+    private func repeatHelp(_ mode: RepeatMode?) -> String {
+        switch mode {
+        case .all where nowPlaying.track?.source == .appleMusic: "Repeat One"
+        case .all, .one: "Turn Repeat Off"
+        case .off, nil: "Turn Repeat On"
         }
     }
 
@@ -285,11 +316,15 @@ private struct VolumeSlider: View {
     }
 }
 
-/// Shuffle, lit in the player's color when on. A dot underneath says "on"
-/// without relying on color alone.
-private struct ShuffleButton: View {
+/// Shuffle or repeat, lit in the player's color when on. A dot underneath
+/// says "on" without relying on color alone.
+private struct ModeButton: View {
+    let symbol: String
     let isOn: Bool
     let accent: Color
+    let help: String
+    let label: String
+    let value: String
     let action: () -> Void
 
     @State private var isHovering = false
@@ -297,8 +332,9 @@ private struct ShuffleButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "shuffle")
+            Image(systemName: symbol)
                 .font(.system(size: 12, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
                 .foregroundStyle(isOn ? accent : .white.opacity(isHovering && isEnabled ? 0.85 : 0.5))
                 .frame(width: 26, height: 26)
                 .overlay(alignment: .bottom) {
@@ -314,9 +350,9 @@ private struct ShuffleButton: View {
         .onHover { isHovering = $0 }
         .animation(.spring(response: 0.25, dampingFraction: 1), value: isOn)
         .animation(.easeOut(duration: 0.12), value: isHovering)
-        .help(isOn ? "Turn Shuffle Off" : "Turn Shuffle On")
-        .accessibilityLabel("Shuffle")
-        .accessibilityValue(isOn ? "On" : "Off")
+        .help(help)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
