@@ -29,6 +29,8 @@
 - **One click to a playlist.** Your playlists are listed on the right. Click one to add the
   song; checkmarks show where it already is. Click a checked one to take it back out.
   *Liked Songs* (Spotify) and *Favorite Songs* (Apple Music) are always at the top.
+- **Spotify contributions.** A GitHub-style graph of the last year: one square per day, greener
+  the more songs you added to your playlists or liked. Click a day to see what you added.
 - **Stays out of the way.** No Dock icon, never takes keyboard focus, and closes as soon as
   the pointer leaves. It uses almost no CPU while idle.
 
@@ -88,6 +90,26 @@ Spotify asks for Premium on the account that owns the developer app.
 
 </details>
 
+## Spotify contributions
+
+<p align="center">
+  <img src="docs/contributions.png" alt="Spotify Contributions window: a year of days as green squares, streak stats, and the songs added on the selected day" width="760">
+</p>
+
+Open it from **Spotify Contributions…** in the menu bar, or **Contributions…** in Settings once
+Spotify is connected. Each square is a day, and its shade grows with what you did that day:
+
+- songs you added to your playlists, using the date Spotify records for each one. In
+  collaborative playlists, only the songs you added count;
+- songs you liked;
+- playlists you created. Spotify doesn't share creation dates, so this is the day of the
+  playlist's first song.
+
+Hover a square to see its count, click it to list the songs. The switch at the top shows
+playlists and Liked Songs together or apart. Spotify keeps no record of songs you removed, and
+songs added before about 2014 often have no date, so those don't appear. Each playlist is cached
+in `~/Library/Caches/com.ghalielouahdani.MusicNotch/` and re-read only when it changes.
+
 ## How it works
 
 | Folder | What's inside |
@@ -96,12 +118,13 @@ Spotify asks for Premium on the account that owns the developer app.
 | `Sources/MusicNotch/Media` | Now-playing state from Spotify and Music: AppleScript plus their change notifications, no polling |
 | `Sources/MusicNotch/Playlists` | A shared playlist interface and the Apple Music implementation |
 | `Sources/MusicNotch/Spotify` | PKCE login, loopback listener, Keychain, Web API client, playlist index |
+| `Sources/MusicNotch/Contributions` | Spotify activity from playlist and Liked Songs dates, the yearly grid and its window |
 | `Sources/MusicNotch/App` | Entry point, settings window, snapshot renderer |
 
 Useful flags while hacking on it:
 
 ```sh
-build/MusicNotch.app/Contents/MacOS/MusicNotch --snapshot /tmp/shots   # render every notch state to PNG
+build/MusicNotch.app/Contents/MacOS/MusicNotch --snapshot /tmp/shots   # render every notch state and the contributions window to PNG
 build/MusicNotch.app/Contents/MacOS/MusicNotch --check-scripts         # compile every AppleScript, run none
 build/MusicNotch.app/Contents/MacOS/MusicNotch --pin-open              # keep the notch open
 /usr/bin/log stream --predicate 'subsystem == "com.ghalielouahdani.MusicNotch"' --level info
