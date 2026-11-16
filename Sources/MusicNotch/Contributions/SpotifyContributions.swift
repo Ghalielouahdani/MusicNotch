@@ -34,7 +34,7 @@ final class SpotifyContributions {
                 events += cached.events
                 continue
             }
-            let found = try await events(in: playlist, me: me)
+            let found = try await playlistEvents(in: playlist, me: me)
             if let snapshot = playlist.snapshot_id {
                 cache[playlist.id] = CachedPlaylist(snapshotID: snapshot, events: found)
             }
@@ -72,7 +72,7 @@ final class SpotifyContributions {
         }
     }
 
-    private func events(in playlist: SpotifyPlaylist, me: String) async throws -> [ContributionEvent] {
+    private func playlistEvents(in playlist: SpotifyPlaylist, me: String) async throws -> [ContributionEvent] {
         let limit = URLQueryItem(name: "limit", value: "50")
         let fields = "next,items(added_at,added_by(id),item(name,artists(name)),track(name,artists(name)))"
         let entries: [SpotifyPlaylistEntry]
