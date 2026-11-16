@@ -6,11 +6,12 @@ struct SettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var auth: SpotifyAuth
     let disconnectSpotify: () -> Void
+    var showContributions: () -> Void = {}
 
     var body: some View {
         Form {
             Section {
-                SpotifySection(auth: auth, disconnect: disconnectSpotify)
+                SpotifySection(auth: auth, disconnect: disconnectSpotify, showContributions: showContributions)
             } header: {
                 Text("Spotify")
             } footer: {
@@ -51,6 +52,7 @@ struct SettingsView: View {
 private struct SpotifySection: View {
     @Bindable var auth: SpotifyAuth
     let disconnect: () -> Void
+    let showContributions: () -> Void
 
     @State private var copied = false
 
@@ -65,6 +67,7 @@ private struct SpotifySection: View {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     }
                     Spacer()
+                    Button("Contributions…", action: showContributions)
                     Button("Disconnect", role: .destructive, action: disconnect)
                 }
                 if !auth.canControlPlayback {

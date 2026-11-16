@@ -8,10 +8,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let spotifyAuth = SpotifyAuth()
     private let nowPlaying = NowPlayingController()
     private lazy var playlists = PlaylistsController(spotifyAuth: spotifyAuth)
+    private lazy var contributions = ContributionsController(auth: spotifyAuth)
 
     private var notch: NotchWindowController?
     private var notchIsOpen = false
     private var settingsWindow: NSWindow?
+    private var contributionsWindow: NSWindow?
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -101,11 +103,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let view = SettingsView(settings: settings, auth: spotifyAuth) { [weak self] in
-                guard let self else { return }
-                playlists.disconnectSpotify()
-                playlists.refresh(for: nowPlaying.track, force: true)
-            }
+            let view = SettingsView(
+                settings: settings,
+                auth: spotifyAuth,
+                disconnectSpotify: { [weak self] in
+                    guard let self else { return }
+                    playlists.disconnectSpotify()
+                    contributions.forgetAccount()
+                    playlists.refresh(for: nowPlaying.track, force: true)
+                },
+                showContributions: { [weak self] in self?.showContributions() }
+            )
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
             window.title = "MusicNotch"
             window.styleMask = [.titled, .closable]
@@ -115,6 +123,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    // MARK: Contributions
+
+    @objc private func showContributions() {
+        if contributionsWindow == nil {
+            let view = ContributionsView(model: contributions) { [weak self] in self?.connectSpotify() }
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = "Spotify Contributions"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            contributionsWindow = window
+        }
+        if contributions.phase != .loaded { contributions.refresh() }
+        NSApp.activate()
+        contributionsWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func updateStatusItem() {
@@ -128,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "MusicNotch")
         let menu = NSMenu()
+        menu.addItem(withTitle: "Spotify Contributions…", action: #selector(showContributions), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit MusicNotch", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

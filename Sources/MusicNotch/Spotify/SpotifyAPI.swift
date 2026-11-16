@@ -98,11 +98,21 @@ struct SpotifyPlaylistEntry: Decodable {
         let artists: [Artist]?
     }
 
+    struct AddedBy: Decodable { let id: String? }
+
     let item: Ref?
     let track: Ref?
+    /// ISO 8601. Only present when requested (or when no `fields` filter is used).
+    let added_at: String?
+    /// Playlists only: who added the song, which matters in collaborative playlists.
+    let added_by: AddedBy?
 
     var ref: Ref? { item ?? track }
     var uri: String? { ref?.uri }
+    var artistNames: String? {
+        let names = (ref?.artists ?? []).compactMap(\.name)
+        return names.isEmpty ? nil : names.joined(separator: ", ")
+    }
 }
 
 struct SpotifySnapshot: Decodable {

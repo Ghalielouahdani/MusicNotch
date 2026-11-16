@@ -51,6 +51,22 @@ enum SnapshotRenderer {
                   let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { continue }
             try? png.write(to: folder.appending(path: "\(name).png"))
         }
+        renderContributions(into: folder)
+    }
+
+    private static func renderContributions(into folder: URL) {
+        let model = ContributionsController(auth: SpotifyAuth())
+        model.showPreview()
+        for (name, scheme) in [("contributions", ColorScheme.light), ("contributions-dark", .dark)] {
+            let view = ContributionsView(model: model)
+                .background(scheme == .dark ? Color(white: 0.12) : Color(white: 0.98))
+                .environment(\.colorScheme, scheme)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            guard let image = renderer.cgImage,
+                  let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { continue }
+            try? png.write(to: folder.appending(path: "\(name).png"))
+        }
     }
 
     private static let variants: [(String, NotchViewModel.State, (PlaylistsController) -> Void)] = [
