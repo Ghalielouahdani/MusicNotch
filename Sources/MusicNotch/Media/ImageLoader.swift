@@ -60,3 +60,76 @@ extension NSImage {
         )
     }
 }
+
+extension NSImage {
+    /// The cover's main colors, most prominent first, distinct from each other
+    /// and toned for a background behind white text. Always `count` colors.
+    func palette(count: Int = 4) -> [NSColor] {
+        let side = 32
+        guard let cgImage = cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let context = CGContext(
+                  data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return [] }
+        context.interpolationQuality = .medium
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
+        guard let data = context.data else { return [] }
+
+        // Group pixels into coarse color bins, keeping each bin's average color.
+        struct Bin { var r = 0.0, g = 0.0, b = 0.0, count = 0.0 }
+        var bins: [Int: Bin] = [:]
+        let pixels = data.bindMemory(to: UInt8.self, capacity: side * side * 4)
+        for index in 0..<(side * side) {
+            let r = Int(pixels[index * 4]), g = Int(pixels[index * 4 + 1]), b = Int(pixels[index * 4 + 2])
+            let key = (r >> 5) << 6 | (g >> 5) << 3 | (b >> 5)
+            var bin = bins[key, default: Bin()]
+            bin.r += Double(r); bin.g += Double(g); bin.b += Double(b); bin.count += 1
+            bins[key] = bin
+        }
+
+        // Rank by size, nudged toward colorful bins so a vivid detail beats a large gray.
+        let candidates: [(color: NSColor, score: Double)] = bins.values.map { bin in
+            let color = NSColor(
+                red: bin.r / bin.count / 255, green: bin.g / bin.count / 255, blue: bin.b / bin.count / 255, alpha: 1
+            )
+            return (color, bin.count * (0.35 + color.saturationComponent))
+        }
+        .sorted { $0.score > $1.score }
+
+        var picked: [NSColor] = []
+        for candidate in candidates where picked.count < count {
+            if picked.allSatisfy({ $0.distance(to: candidate.color) > 0.22 }) { picked.append(candidate.color) }
+        }
+        guard !picked.isEmpty else { return [] }
+        // A plain cover: fill with lighter and darker shades of what's there.
+        var shade = 0
+        while picked.count < count {
+            let base = picked[shade % picked.count]
+            picked.append(base.adjusted(brightness: shade.isMultiple(of: 2) ? -0.18 : 0.15))
+            shade += 1
+        }
+        return picked.map { $0.toned() }
+    }
+}
+
+private extension NSColor {
+    func distance(to other: NSColor) -> Double {
+        let a = usingColorSpace(.deviceRGB) ?? self, b = other.usingColorSpace(.deviceRGB) ?? other
+        let dr = a.redComponent - b.redComponent, dg = a.greenComponent - b.greenComponent, db = a.blueComponent - b.blueComponent
+        return (dr * dr + dg * dg + db * db).squareRoot()
+    }
+
+    func adjusted(brightness delta: CGFloat) -> NSColor {
+        let color = usingColorSpace(.deviceRGB) ?? self
+        return NSColor(hue: color.hueComponent, saturation: color.saturationComponent,
+                       brightness: min(1, max(0, color.brightnessComponent + delta)), alpha: 1)
+    }
+
+    /// Keeps a background color out of pure black and blown-out white.
+    func toned() -> NSColor {
+        let color = usingColorSpace(.deviceRGB) ?? self
+        return NSColor(hue: color.hueComponent, saturation: min(1, color.saturationComponent * 1.1),
+                       brightness: min(0.82, max(0.18, color.brightnessComponent)), alpha: 1)
+    }
+}

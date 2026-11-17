@@ -7,6 +7,7 @@ struct NotchActions {
     var openAutomationSettings: () -> Void = {}
     var retryPlaylists: () -> Void = {}
     var openPlayer: () -> Void = {}
+    var openFullScreen: () -> Void = {}
 }
 
 /// The black notch outline: flared top corners that melt into the screen edge,

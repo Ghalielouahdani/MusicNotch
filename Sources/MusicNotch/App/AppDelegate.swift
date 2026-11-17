@@ -9,9 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let nowPlaying = NowPlayingController()
     private lazy var playlists = PlaylistsController(spotifyAuth: spotifyAuth)
     private lazy var contributions = ContributionsController(auth: spotifyAuth)
+    private lazy var fullScreen = FullScreenWindowController(nowPlaying: nowPlaying)
 
     private var notch: NotchWindowController?
     private var notchIsOpen = false
+    private var fullScreenIsOpen = false
     private var settingsWindow: NSWindow?
     private var contributionsWindow: NSWindow?
     private var statusItem: NSStatusItem?
@@ -31,6 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onClose = { [weak self] in self?.notchClosed() }
         notch = controller
         if CommandLine.arguments.contains("--pin-open") { notchOpened() }
+
+        fullScreen.onOpen = { [weak self] in
+            self?.fullScreenIsOpen = true
+            self?.updateLiveUpdates()
+        }
+        fullScreen.onClose = { [weak self] in
+            self?.fullScreenIsOpen = false
+            self?.updateLiveUpdates()
+        }
 
         updateStatusItem()
         observeChanges()
@@ -59,19 +70,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let source = self?.nowPlaying.track?.source,
                       let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: source.bundleID) else { return }
                 NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-            }
+            },
+            openFullScreen: { [weak self] in self?.fullScreen.open() }
         )
     }
 
     private func notchOpened() {
         notchIsOpen = true
-        nowPlaying.setLiveUpdates(true)
+        updateLiveUpdates()
         playlists.refresh(for: nowPlaying.track)
     }
 
     private func notchClosed() {
         notchIsOpen = false
-        nowPlaying.setLiveUpdates(false)
+        updateLiveUpdates()
+    }
+
+    /// Keeps the position fresh while anything showing it is on screen.
+    private func updateLiveUpdates() {
+        nowPlaying.setLiveUpdates(notchIsOpen || fullScreenIsOpen)
+    }
+
+    @objc private func toggleFullScreen() {
+        fullScreen.toggle()
     }
 
     private func connectSpotify() {
@@ -153,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "MusicNotch")
         let menu = NSMenu()
+        menu.addItem(withTitle: "Full Screen Player", action: #selector(toggleFullScreen), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Spotify Contributions…", action: #selector(showContributions), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())

@@ -12,6 +12,8 @@ final class NowPlayingController {
     private(set) var playback: PlaybackState?
     private(set) var artwork: NSImage?
     private(set) var accentColor: NSColor?
+    /// The cover's main colors, for the full-screen background.
+    private(set) var palette: [NSColor] = []
     /// Players the user hasn't allowed MusicNotch to control.
     private(set) var deniedSources: Set<MusicSource> = []
 
@@ -227,6 +229,7 @@ final class NowPlayingController {
         guard let track else {
             artwork = nil
             accentColor = nil
+            palette = []
             return
         }
         Task {
@@ -240,6 +243,7 @@ final class NowPlayingController {
             guard artworkTrackID == key else { return }
             artwork = image
             accentColor = image?.accentColor
+            palette = image?.palette() ?? []
         }
     }
 
@@ -249,5 +253,6 @@ final class NowPlayingController {
         playback = state
         self.artwork = artwork
         accentColor = artwork?.accentColor
+        palette = artwork?.palette() ?? []
     }
 }

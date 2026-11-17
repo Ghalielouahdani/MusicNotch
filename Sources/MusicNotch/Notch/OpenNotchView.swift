@@ -9,7 +9,12 @@ struct OpenNotchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            NotchHeader(source: nowPlaying.track?.source, notice: playlists.notice, openSettings: actions.openSettings)
+            NotchHeader(
+                source: nowPlaying.track?.source,
+                notice: playlists.notice,
+                openFullScreen: nowPlaying.track == nil ? nil : actions.openFullScreen,
+                openSettings: actions.openSettings
+            )
                 .frame(height: model.notchSize.height)
                 .padding(.horizontal, 30)
 
@@ -31,6 +36,7 @@ struct OpenNotchView: View {
 private struct NotchHeader: View {
     let source: MusicSource?
     let notice: PlaylistsController.Notice?
+    let openFullScreen: (() -> Void)?
     let openSettings: () -> Void
 
     var body: some View {
@@ -54,8 +60,13 @@ private struct NotchHeader: View {
                 }
             }
             .animation(.spring(response: 0.3, dampingFraction: 1), value: notice)
+            if let openFullScreen {
+                IconButton(symbol: "arrow.up.left.and.arrow.down.right", size: 10, help: "Full Screen Player", action: openFullScreen)
+                    .padding(.leading, 8)
+                    .transition(.opacity)
+            }
             IconButton(symbol: "gearshape.fill", size: 11, help: "MusicNotch Settings", action: openSettings)
-                .padding(.leading, 8)
+                .padding(.leading, openFullScreen == nil ? 8 : 0)
         }
         .font(.system(size: 11, weight: .semibold))
         .foregroundStyle(.white.opacity(0.5))
@@ -140,7 +151,7 @@ struct NowPlayingSection: View {
     }
 }
 
-private struct PlaybackControls: View {
+struct PlaybackControls: View {
     let nowPlaying: NowPlayingController
 
     static let sideSlotWidth: CGFloat = 26
@@ -357,7 +368,7 @@ private struct ModeButton: View {
 }
 
 /// A progress bar you can grab: it follows the pointer 1:1 and seeks on release.
-private struct PlaybackScrubber: View {
+struct PlaybackScrubber: View {
     let playback: PlaybackState
     let onSeek: (TimeInterval) -> Void
 
