@@ -492,6 +492,7 @@ private struct PlaylistList: View {
                         isPlayingFrom: isPlayingFrom,
                         isPlaying: isPlaying,
                         toggle: { if let track { playlists.toggle(playlist, for: track) } },
+                        open: { navigate { playlists.showSongs(of: playlist, source: source) } },
                         play: {
                             navigate {
                                 // Already playing from it: just show its songs, don't restart.
@@ -712,8 +713,8 @@ private func formatDuration(_ seconds: TimeInterval) -> String {
     return String(format: "%d:%02d", total / 60, total % 60)
 }
 
-/// One playlist: click the row to add or remove the song; the play button
-/// beside the (+) starts the playlist.
+/// One playlist: click the row to add or remove the song; click the name to see
+/// its songs; the play button beside the (+) starts the playlist.
 private struct PlaylistRow: View {
     let playlist: Playlist
     let source: MusicSource
@@ -724,25 +725,25 @@ private struct PlaylistRow: View {
     let isPlayingFrom: Bool
     let isPlaying: Bool
     let toggle: () -> Void
+    let open: () -> Void
     let play: () -> Void
 
     @State private var isHovering = false
+    @State private var isHoveringName = false
 
     /// Room kept free in the row for the play button, which sits on top of it.
     private static let playSlot: CGFloat = 22
     private static let rowPadding: CGFloat = 7
     private static let spacing: CGFloat = 9
     private static let statusWidth: CGFloat = 18
+    private static let coverSize: CGFloat = 24
 
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: Self.spacing) {
                 PlaylistCover(playlist: playlist, source: source)
-                    .frame(width: 24, height: 24)
-                Text(playlist.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(isEnabled || canPlay ? 0.92 : 0.4))
-                    .lineLimit(1)
+                    .frame(width: Self.coverSize, height: Self.coverSize)
+                name
                 Spacer(minLength: 6)
                 if canPlay { Color.clear.frame(width: Self.playSlot, height: 1) }
                 status.frame(width: Self.statusWidth, height: 18)
@@ -753,6 +754,28 @@ private struct PlaylistRow: View {
         }
         .buttonStyle(RowButtonStyle(isHighlighted: isHovering && (isEnabled || canPlay)))
         .disabled(!isEnabled)
+        // The name opens the playlist instead of adding to it. It lays out like the
+        // row so it lands exactly on the name, and stays clickable when adding isn't possible.
+        .overlay {
+            if canPlay {
+                HStack(spacing: Self.spacing) {
+                    Color.clear.frame(width: Self.coverSize, height: 1)
+                    Button(action: open) {
+                        name
+                            .opacity(0)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { isHoveringName = $0 }
+                    .pointerStyle(.link)
+                    .help("Show songs in \(playlist.name)")
+                    .accessibilityLabel("Show songs in \(playlist.name)")
+                    Spacer(minLength: 6)
+                    Color.clear.frame(width: Self.playSlot + Self.spacing + Self.statusWidth, height: 1)
+                }
+                .padding(.horizontal, Self.rowPadding)
+            }
+        }
         // A separate button above the row, so it isn't swallowed by the row's own click.
         .overlay(alignment: .trailing) {
             if canPlay {
@@ -772,6 +795,14 @@ private struct PlaylistRow: View {
         .help(isAdded ? "Remove from \(playlist.name)" : "Add to \(playlist.name)")
         .accessibilityLabel(isAdded ? "Remove from \(playlist.name)" : "Add to \(playlist.name)")
         .accessibilityValue(isAdded ? "Added" : "")
+    }
+
+    private var name: some View {
+        Text(playlist.name)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.white.opacity(isEnabled || canPlay ? 0.92 : 0.4))
+            .underline(isHoveringName, color: .white.opacity(0.5))
+            .lineLimit(1)
     }
 
     private var status: some View {

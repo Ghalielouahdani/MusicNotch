@@ -30,6 +30,7 @@
   slider, or click it to mute.
 - **One click to a playlist.** Your playlists are listed on the right. Click one to add the
   song; checkmarks show where it already is. Click a checked one to take it back out.
+  Click a playlist's name instead to see its songs without adding anything.
   *Liked Songs* (Spotify) and *Favorite Songs* (Apple Music) are always at the top.
 - **Spotify contributions.** A GitHub-style graph of the last year: one square per day, greener
   the more songs you added to your playlists or liked. Click a day to see what you added.
