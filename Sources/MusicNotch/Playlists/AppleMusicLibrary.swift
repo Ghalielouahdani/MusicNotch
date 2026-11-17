@@ -56,6 +56,13 @@ final class AppleMusicLibrary: PlaylistProvider {
         try await AppleScriptRunner.shared.run(script, cache: false)
     }
 
+    /// Music's scripting dictionary has no way to reach Up Next.
+    var canQueue: Bool { false }
+
+    func addToQueue(_ track: PlaylistTrack) async throws {
+        throw ScriptError(number: -1, message: "Music can't queue songs from here.")
+    }
+
     func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack] {
         guard playlist.kind == .regular else { return [] }
         let value = try await AppleScriptRunner.shared.run(MusicScripts.tracks(playlistID: try Self.validated(playlist.id)), cache: false)

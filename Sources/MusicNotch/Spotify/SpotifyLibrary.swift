@@ -106,6 +106,19 @@ final class SpotifyLibrary: PlaylistProvider {
         )
     }
 
+    var canQueue: Bool { auth.canControlPlayback }
+
+    func addToQueue(_ track: PlaylistTrack) async throws {
+        let uri = URLQueryItem(name: "uri", value: track.trackID)
+        do {
+            try await api.send("POST", api.url("me/player/queue", query: [uri]))
+        } catch SpotifyError.http(404, _) {
+            // No active device: aim at this Mac's Spotify app instead.
+            guard let device = try await localDeviceID() else { throw SpotifyError.http(404, "Spotify isn't open on this Mac.") }
+            try await api.send("POST", api.url("me/player/queue", query: [uri, URLQueryItem(name: "device_id", value: device)]))
+        }
+    }
+
     func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack] {
         var tracks: [PlaylistTrack] = []
         let limit = URLQueryItem(name: "limit", value: "50")

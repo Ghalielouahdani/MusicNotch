@@ -213,6 +213,29 @@ final class PlaylistsController {
         }
     }
 
+    /// Whether songs in the open playlist can be queued.
+    var canQueue: Bool {
+        guard let openSource else { return false }
+        return provider(for: openSource).canQueue
+    }
+
+    /// Adds one song from the open playlist to the end of the player's queue.
+    func queue(_ song: PlaylistTrack) {
+        guard let source = openSource else { return }
+        let provider = provider(for: source)
+        Task {
+            do {
+                try await provider.addToQueue(song)
+                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+                show(Notice(kind: .added, text: "Added to Queue"))
+            } catch {
+                Log.playlists.error("queue failed: \(String(describing: error), privacy: .public)")
+                handle(error, source: source)
+                show(Notice(kind: .error, text: Self.message(for: error)))
+            }
+        }
+    }
+
     /// Once per launch, points out that an older Spotify login brings Spotify forward on play.
     @discardableResult
     private func showReconnectHintIfNeeded(source: MusicSource) -> Bool {

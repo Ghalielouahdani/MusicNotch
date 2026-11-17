@@ -24,6 +24,11 @@ protocol PlaylistProvider: AnyObject {
     /// Plays one song and keeps going through the rest of the playlist.
     func play(_ track: PlaylistTrack, in playlist: Playlist) async throws
 
+    /// Whether songs can be added to the player's queue from here.
+    var canQueue: Bool { get }
+    /// Adds one song to the end of the player's queue.
+    func addToQueue(_ track: PlaylistTrack) async throws
+
     /// The playlist's songs in order. Calls `progress` as pages arrive so long
     /// playlists show their first songs right away.
     func tracks(in playlist: Playlist, progress: ([PlaylistTrack]) -> Void) async throws -> [PlaylistTrack]

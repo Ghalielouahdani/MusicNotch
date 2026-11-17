@@ -522,6 +522,7 @@ private struct PlaylistSongsView: View {
     var body: some View {
         let songs = playlists.songs
         let currentPosition = songs.first { $0.matches(current) }?.position
+        let canQueue = playlists.canQueue
 
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 2) {
@@ -564,7 +565,8 @@ private struct PlaylistSongsView: View {
                                     song: song,
                                     isCurrent: song.position == currentPosition,
                                     isPlaying: isPlaying,
-                                    accent: accent
+                                    accent: accent,
+                                    queue: canQueue ? { playlists.queue(song) } : nil
                                 ) {
                                     playlists.play(song)
                                 }
@@ -592,10 +594,15 @@ private struct SongRow: View {
     let isCurrent: Bool
     let isPlaying: Bool
     let accent: Color
+    /// Adds the song to the player's queue. Nil when the player can't queue.
+    var queue: (() -> Void)?
     let action: () -> Void
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Room kept free beside the length for the queue button.
+    private static let queueButtonWidth: CGFloat = 24
 
     var body: some View {
         Button(action: action) {
@@ -634,12 +641,25 @@ private struct SongRow: View {
                 Text(formatDuration(song.duration))
                     .font(.system(size: 10, weight: .medium).monospacedDigit())
                     .foregroundStyle(.white.opacity(0.4))
+                if queue != nil {
+                    Color.clear.frame(width: Self.queueButtonWidth)
+                }
             }
             .padding(.horizontal, 6)
             .frame(height: 30)
             .contentShape(Rectangle())
         }
         .buttonStyle(RowButtonStyle(isHighlighted: isHovering))
+        .overlay(alignment: .trailing) {
+            if let queue {
+                IconButton(symbol: "text.line.last.and.arrowtriangle.forward", size: 10, help: "Add \(song.title) to Queue", action: queue)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: Self.queueButtonWidth)
+                    .padding(.trailing, 2)
+                    .opacity(isHovering ? 1 : 0)
+                    .animation(.easeOut(duration: 0.12), value: isHovering)
+            }
+        }
         .onHover { isHovering = $0 }
         .help("Play \(song.title)")
         .accessibilityLabel("Play \(song.title)\(song.artist.isEmpty ? "" : " by \(song.artist)")")

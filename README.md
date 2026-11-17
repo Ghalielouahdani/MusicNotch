@@ -22,7 +22,9 @@
   with the cover, title, a draggable progress bar and playback controls.
 - **Play a playlist.** Hover a playlist and press ▶ next to the (+). Its songs slide in with
   the one playing highlighted. Click any song to play it and keep going through the playlist,
-  and use the back arrow to return to your playlists.
+  and use the back arrow to return to your playlists. In Spotify, hover a song and press the
+  queue button next to its length to add it to your queue (Apple Music doesn't let other apps
+  reach Up Next).
 - **Shuffle, repeat and volume.** Shuffle and repeat sit on either side of the controls and light
   up in the player's color when on. In Apple Music, a second click on repeat repeats just the song. The speaker on the right fills with the volume level: hover it to slide out a volume
   slider, or click it to mute.
